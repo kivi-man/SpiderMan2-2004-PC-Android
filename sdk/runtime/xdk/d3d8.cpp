@@ -204,8 +204,8 @@ void UpdateViewportConstants() {
         W32(p + 4, v.y);
         W32(p + 8, v.w);
         W32(p + 12, v.h);
-        std::memcpy(HostPtr(p + 16), &v.min_z, 4);
-        std::memcpy(HostPtr(p + 20), &v.max_z, 4);
+        WF(p + 16, v.min_z);
+        WF(p + 20, v.max_z);
     }
 }
 
@@ -324,14 +324,14 @@ HLE_STDCALL(Direct3D_CreateDevice, 6) {
     SetDev(kDevBackBuffer, g_buffers[1]);
     SetDev(kDevFrontBuffer, g_buffers[1]);
     float one = 1.0f, zs = g_depth && (R32(g_depth + 12) >> 8 & 0xFF) == 0x30 ? 65535.0f : 16777215.0f;
-    std::memcpy(HostPtr(kDevice + kDevSuperX), &one, 4);
-    std::memcpy(HostPtr(kDevice + kDevSuperY), &one, 4);
-    std::memcpy(HostPtr(kDevice + kDevZScale), &zs, 4);
+    WF(kDevice + kDevSuperX, one);
+    WF(kDevice + kDevSuperY, one);
+    WF(kDevice + kDevZScale, zs);
     // fields the library's init sets that inlined library code and the default states read
     if (XDK_CDevice_AutoDepth != xdk::kUnknown) SetDev(XDK_CDevice_AutoDepth, g_depth);
     if (XDK_CDevice_BackBufferScale != xdk::kUnknown) {
-        std::memcpy(HostPtr(kDevice + XDK_CDevice_BackBufferScale), &one, 4);
-        std::memcpy(HostPtr(kDevice + XDK_CDevice_BackBufferScale + 4), &one, 4);
+        WF(kDevice + XDK_CDevice_BackBufferScale, one);
+        WF(kDevice + XDK_CDevice_BackBufferScale + 4, one);
     }
     // 60 Hz, widescreen
     if (XDK_CDevice_DisplayFlags != xdk::kUnknown) SetDev(XDK_CDevice_DisplayFlags, 0x400000 | (app::Widescreen() ? 0x10000 : 0));
@@ -703,12 +703,12 @@ HLE_STDCALL(D3DDevice_SetTransform, 2) {
     if (t >= 10) return 0;
     std::memcpy(HostPtr(kDevice + kDevTransforms + t * 64), HostPtr(a[1]), 64);
     uint32_t pc = t < 2 ? t + 2 : t < 6 ? t + 14 : t + 250;
-    std::memcpy(g_state.transforms[pc].data(), HostPtr(a[1]), 64);
+    ReadDwords(g_state.transforms[pc].data(), a[1], 16);
     return 0;
 }
 
 HLE_STDCALL(D3DDevice_SetMaterial, 1) {
-    std::memcpy(g_state.material.data(), HostPtr(a[0]), 17 * 4);
+    ReadDwords(g_state.material.data(), a[0], 17);
     return 0;
 }
 
@@ -717,7 +717,7 @@ HLE_WRAP(D3DDevice_SetLight, 2) {
     uint32_t i = a[0], l = a[1];
     if (i < 8 && l) {
         std::lock_guard<std::recursive_mutex> lock(g_lock);
-        std::memcpy(g_state.lights[i].data(), HostPtr(l), 26 * 4);
+        ReadDwords(g_state.lights[i].data(), l, 26);
     }
 }
 HLE_WRAP(D3DDevice_LightEnable, 2) {
@@ -873,25 +873,25 @@ HLE_STDCALL(D3DDevice_SetVertexShader, 1) {
 
 HLE_FASTCALL(D3DDevice_SetVertexShaderConstant1Fast, 0) {
     uint32_t reg = a[0];
-    if (reg < 192) std::memcpy(g_state.vsc[reg].data(), HostPtr(a[1]), 16);
+    if (reg < 192) ReadDwords(g_state.vsc[reg].data(), a[1], 4);
     return 0;
 }
 
 HLE_FASTCALL(D3DDevice_SetVertexShaderConstant1, 0) {
     uint32_t reg = a[0];
-    if (reg < 192) std::memcpy(g_state.vsc[reg].data(), HostPtr(a[1]), 16);
+    if (reg < 192) ReadDwords(g_state.vsc[reg].data(), a[1], 4);
     return 0;
 }
 
 HLE_FASTCALL(D3DDevice_SetVertexShaderConstant4, 0) {
     uint32_t reg = a[0], src = a[1];
-    for (uint32_t i = 0; i < 4 && reg + i < 192; i++) std::memcpy(g_state.vsc[reg + i].data(), HostPtr(src + i * 16), 16);
+    for (uint32_t i = 0; i < 4 && reg + i < 192; i++) ReadDwords(g_state.vsc[reg + i].data(), src + i * 16, 4);
     return 0;
 }
 
 HLE_FASTCALL(D3DDevice_SetVertexShaderConstantNotInlineFast, 1) {
     uint32_t reg = a[0], src = a[1], dwords = a[2];
-    for (uint32_t i = 0; i < dwords / 4 && reg + i < 192; i++) std::memcpy(g_state.vsc[reg + i].data(), HostPtr(src + i * 16), 16);
+    for (uint32_t i = 0; i < dwords / 4 && reg + i < 192; i++) ReadDwords(g_state.vsc[reg + i].data(), src + i * 16, 4);
     return 0;
 }
 
@@ -1060,7 +1060,7 @@ HLE_STDCALL(D3DDevice_SetShaderConstantMode, 1) {
 HLE_STDCALL(D3DDevice_CreatePixelShader, 2) {
     std::lock_guard<std::recursive_mutex> lock(g_lock);
     auto ps = std::make_shared<gpu::PixelShader>();
-    std::memcpy(ps->def, HostPtr(a[0]), sizeof(ps->def));
+    ReadDwords(ps->def, a[0], std::size(ps->def));
     uint32_t rec = mem::AllocSystem(16, 16);
     ps->handle = rec;
     g_ps[rec] = ps;
@@ -1084,7 +1084,8 @@ HLE_STDCALL(D3DDevice_SetPixelShader, 1) {
     } else if (XDK_PixelShader_Definition != xdk::kUnknown) {
         // made by library code the title inlined: the object points at its definition, handles are reused
         static std::unordered_map<uint32_t, std::shared_ptr<gpu::PixelShader>> made;
-        const void* def = HostPtr(R32(a[0] + XDK_PixelShader_Definition));
+        uint32_t def[std::size(gpu::PixelShader{}.def)];
+        ReadDwords(def, R32(a[0] + XDK_PixelShader_Definition), std::size(def));
         auto& ps = made[a[0]];
         if (!ps || std::memcmp(ps->def, def, sizeof(ps->def))) {
             ps = std::make_shared<gpu::PixelShader>();
@@ -1122,7 +1123,7 @@ HLE_STDCALL(D3DDevice_SetPixelShader, 1) {
 HLE_STDCALL(D3DDevice_SetPixelShaderConstant, 3) {
     std::lock_guard<std::recursive_mutex> lock(g_lock);
     uint32_t reg = a[0], src = a[1], n = a[2];
-    for (uint32_t i = 0; i < n && reg + i < 16; i++) std::memcpy(g_state.psc[reg + i].data(), HostPtr(src + i * 16), 16);
+    for (uint32_t i = 0; i < n && reg + i < 16; i++) ReadDwords(g_state.psc[reg + i].data(), src + i * 16, 4);
     gpu::ApplyPixelConstants(g_state, reg, n);
     return 0;
 }
@@ -1189,7 +1190,10 @@ void TraceDraw(const char* kind, const void* vertex, uint32_t stride, uint32_t c
     if (at < 0 || long(g_presents.load()) != at) return;
     static uint32_t n = 0;
     float xy[2] = {};
-    if (vertex && stride >= 8) std::memcpy(xy, vertex, 8);
+    if (vertex && stride >= 8) {
+        xy[0] = x86_ld_le<float>(vertex);
+        xy[1] = x86_ld_le<float>(static_cast<const uint8_t*>(vertex) + 4);
+    }
     X86Context& ctx = kernel::CurrentContext();
     std::string callers;
     char buf[12];
@@ -1211,8 +1215,11 @@ void TraceDraw(const char* kind, const void* vertex, uint32_t stride, uint32_t c
             const uint8_t* v = static_cast<const uint8_t*>(vertex);
             for (uint32_t i = 0; i < count; i++) {
                 float f[4];
-                std::memcpy(f, v + size_t(i) * stride, 8);
-                std::memcpy(f + 2, v + size_t(i) * stride + stride - 8, 8);
+                const uint8_t* at = v + size_t(i) * stride;
+                f[0] = x86_ld_le<float>(at);
+                f[1] = x86_ld_le<float>(at + 4);
+                f[2] = x86_ld_le<float>(at + stride - 8);
+                f[3] = x86_ld_le<float>(at + stride - 4);
                 std::fprintf(out, "    %.1f %.1f  %.4f %.4f\n", f[0], f[1], f[2], f[3]);
             }
         }
@@ -1291,6 +1298,7 @@ void EndPrimitive() {
             if (g_im_mask >> s & 1) packed.insert(packed.end(), &g_im_vertices[v * 64 + s * 4], &g_im_vertices[v * 64 + s * 4] + 4);
     g_state.vs = m.vs;
     g_state.vs_handle = handle | 1;
+    x86_le_swap(reinterpret_cast<uint32_t*>(packed.data()), packed.size());  // vertex data is in the console's order
     DrawUp(prim, count, packed.data(), m.vs->stream_stride[0]);
     g_state.vs = bound;
     g_state.vs_handle = handle;
@@ -1400,7 +1408,7 @@ HLE_STDCALL(D3DDevice_EndPush, 1) {
             uint32_t m = head & 0x40000000 ? method : method + i * 4, v = R32(p);
             ApplyVisibilityMethod(m, v);
             if (m == kInlineArray) {
-                if (prim) vertices.push_back(v);
+                if (prim) vertices.push_back(x86_bswap(v));  // kept in the console's order, as vertex data
             } else if (m >= 0x0B80 && m < 0x0C00) {  // TRANSFORM_CONSTANT at the constant slot (0x1EA4)
                 uint32_t r = g_push_constant / 4;
                 if (r < 192) std::memcpy(&g_state.vsc[r][g_push_constant % 4], &v, 4);
@@ -1518,6 +1526,7 @@ void PushDraw(uint32_t prim, const PushArrays& arr, bool program, const std::vec
         if (top < 0x10000) {
             static std::vector<uint16_t> i16;
             i16.assign(idx.begin(), idx.end());
+            x86_le_swap(i16.data(), i16.size());  // index data is in the console's order
             g_backend->Draw(g_state, prim, 0, uint32_t(i16.size()), reinterpret_cast<const uint8_t*>(i16.data()));
         } else {
             LOG_FIRST(8, "d3d: push buffer draw with index %u over 16 bits dropped", top);
@@ -1551,6 +1560,7 @@ HLE_STDCALL(D3DDevice_RunPushBuffer, 2) {
             p += 8 + n;
         }
     }
+    x86_le_swap(buf.data(), buf.size());  // the commands in host order
     // the arrays start as the hardware has them: a push buffer may only draw, over the layout and buffers the
     // title set through the library before running it
     PushArrays arr = CurrentArrays();
@@ -1614,7 +1624,7 @@ HLE_STDCALL(D3DDevice_RunPushBuffer, 2) {
             } else if (m == 0x1810) {  // DRAW_ARRAYS: start, count - 1 in the top byte
                 for (uint32_t k = 0, s0 = v & 0xFFFFFF; k <= v >> 24; k++) idx.push_back(s0 + k);
             } else if (m == 0x1818) {  // INLINE_ARRAY
-                inl.push_back(v);
+                inl.push_back(x86_bswap(v));  // kept in the console's order, as vertex data
             } else if (m >= 0x0B00 && m < 0x0B80) {  // TRANSFORM_PROGRAM
                 if (slot < kProgramSlots * 4) g_slots[slot] = v;
                 slot++;

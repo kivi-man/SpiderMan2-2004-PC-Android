@@ -94,6 +94,15 @@ template <typename T>
 inline T& G(uint32_t va) {
     return *reinterpret_cast<T*>(GuestByte(va));
 }
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+// guest memory is little-endian, the host big-endian (cpu/x86_ops.h)
+inline uint32_t R32(uint32_t va) { return x86_ld_le<uint32_t>(GuestByte(va)); }
+inline void W32(uint32_t va, uint32_t v) { x86_st_le<uint32_t>(GuestByte(va), v); }
+inline uint16_t R16(uint32_t va) { return x86_ld_le<uint16_t>(GuestByte(va)); }
+inline void W16(uint32_t va, uint16_t v) { x86_st_le<uint16_t>(GuestByte(va), v); }
+inline uint64_t R64(uint32_t va) { return x86_ld_le<uint64_t>(GuestByte(va)); }
+inline void W64(uint32_t va, uint64_t v) { x86_st_le<uint64_t>(GuestByte(va), v); }
+#else
 inline uint32_t R32(uint32_t va) {
     uint32_t v;
     std::memcpy(&v, GuestByte(va), 4);
@@ -112,7 +121,44 @@ inline uint64_t R64(uint32_t va) {
     return v;
 }
 inline void W64(uint32_t va, uint64_t v) { std::memcpy(GuestByte(va), &v, 8); }
+#endif
 inline void* HostPtr(uint32_t va) { return GuestByte(va); }
+
+// dwords (uint32, int32 or float fields) copied out of guest memory into host order, or from host order into it
+inline void ReadDwords(void* dst, uint32_t va, size_t dwords) {
+    std::memcpy(dst, GuestByte(va), dwords * 4);
+    x86_le_swap(static_cast<uint32_t*>(dst), dwords);
+}
+inline void WriteDwords(uint32_t va, const void* src, size_t dwords) {
+    uint8_t* p = GuestByte(va);
+    std::memcpy(p, src, dwords * 4);
+    x86_le_swap(reinterpret_cast<uint32_t*>(p), dwords);
+}
+inline float RF(uint32_t va) { return x86_ld_le<float>(GuestByte(va)); }
+inline void WF(uint32_t va, float v) { x86_st_le<float>(GuestByte(va), v); }
+
+// atomics on an aligned guest dword, kept little-endian in memory on any host
+inline uint32_t* GuestWord(uint32_t va) { return reinterpret_cast<uint32_t*>(GuestByte(va)); }
+inline bool AtomicCas32(uint32_t va, uint32_t& expected, uint32_t desired) {
+    uint32_t e = x86_bswap(expected);
+    bool ok = __atomic_compare_exchange_n(GuestWord(va), &e, x86_bswap(desired), false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    expected = x86_bswap(e);
+    return ok;
+}
+inline uint32_t AtomicExchange32(uint32_t va, uint32_t v) {
+    return x86_bswap(__atomic_exchange_n(GuestWord(va), x86_bswap(v), __ATOMIC_SEQ_CST));
+}
+// the value before the add
+inline uint32_t AtomicFetchAdd32(uint32_t va, uint32_t d) {
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+    uint32_t old = R32(va);
+    while (!AtomicCas32(va, old, old + d)) {
+    }
+    return old;
+#else
+    return __atomic_fetch_add(GuestWord(va), d, __ATOMIC_SEQ_CST);
+#endif
+}
 
 // ANSI_STRING / OBJECT_STRING: USHORT Length, USHORT MaximumLength, PCHAR Buffer
 std::string ReadAnsiString(uint32_t str);
@@ -208,6 +254,9 @@ using ThreadRef = std::shared_ptr<Thread>;
 Thread* Current();
 // names the calling host thread; on the Switch "render" and "sound" also get a preferred core of their own
 void NameHostThread(const char* name);
+#ifdef XBE_PS3
+extern uint32_t g_host_stack;  // bytes of host stack for each guest thread
+#endif
 
 // marks the current thread as inside a kernel or library function until the end of the scope
 struct CallMark {

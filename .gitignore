@@ -30,6 +30,9 @@ settings.toml
 # Switch build output (holds code derived from the game)
 /build-switch/
 
+# PS3 build output (holds code derived from the game)
+/build-ps3/
+
 # build.sh: the PC tools, its logs
 /build-tools/
 /build-*.log
@@ -37,3 +40,17 @@ settings.toml
 # build-windows.cmd: the SD card folder it makes (holds the .nro and your game)
 /SD card/
 __pycache__/
+
+# Windows build: run folder (holds the exe and your game)
+/dist/
+/build-win.log
+
+# Android: local SDK path, Gradle and native build outputs
+/android/local.properties
+/android/.gradle/
+/android/app/build/
+/android/app/.cxx/
+/android/build/
+/build-android-*/
+/build-android-*.log
+/dist-android/

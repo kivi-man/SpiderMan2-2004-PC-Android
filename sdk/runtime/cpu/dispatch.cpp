@@ -18,8 +18,20 @@
 
 namespace {
 
+#if XBE_PS3
+// 256 MB: a pointer per code byte would be 35 MB. A 16-bit index into the function list per code byte (0 none), a bit
+// per byte for the continuations
+std::vector<uint16_t> g_index;
+std::vector<X86Func*> g_funcs;
+std::vector<uint8_t> g_continuation_bits;
+inline X86Func* Slot(uint32_t off) { return g_funcs[g_index[off]]; }
+inline bool Continuation(uint32_t off) { return (g_continuation_bits[off >> 3] >> (off & 7)) & 1; }
+#else
 std::vector<X86Func*> g_table;  // one slot per code byte
 std::vector<uint8_t> g_continuation;  // a byte each: read on every indirect call
+inline X86Func* Slot(uint32_t off) { return g_table[off]; }
+inline bool Continuation(uint32_t off) { return g_continuation[off] != 0; }
+#endif
 uint32_t g_lo = 0, g_hi = 0;
 
 struct Export {
@@ -39,18 +51,35 @@ namespace dispatch {
 void Init() {
     g_lo = X86CodeBase;
     g_hi = X86CodeEnd;
-    g_table.assign(g_hi - g_lo, nullptr);
     size_t n = 0;
+#if XBE_PS3
+    g_index.assign(g_hi - g_lo, 0);
+    g_funcs.assign(1, nullptr);
+    for (const X86FuncMapping* m = X86FuncMappings; m->host; m++, n++) {
+        if (m->guest < g_lo || m->guest >= g_hi) continue;
+        if (g_funcs.size() > 0xFFFF) {
+            LOGE("dispatch: more than 65535 functions, the rest unreachable by pointer");
+            break;
+        }
+        g_index[m->guest - g_lo] = uint16_t(g_funcs.size());
+        g_funcs.push_back(m->host);
+    }
+    g_continuation_bits.assign((g_hi - g_lo + 7) / 8, 0);
+    for (const uint32_t* c = X86Continuations; *c; c++)
+        if (*c >= g_lo && *c < g_hi) g_continuation_bits[(*c - g_lo) >> 3] |= uint8_t(1u << ((*c - g_lo) & 7));
+#else
+    g_table.assign(g_hi - g_lo, nullptr);
     for (const X86FuncMapping* m = X86FuncMappings; m->host; m++, n++)
         if (m->guest >= g_lo && m->guest < g_hi) g_table[m->guest - g_lo] = m->host;
     g_continuation.assign(g_hi - g_lo, 0);
     for (const uint32_t* c = X86Continuations; *c; c++)
         if (*c >= g_lo && *c < g_hi) g_continuation[*c - g_lo] = 1;
+#endif
     LOGI("dispatch: %zu functions over %08X..%08X", n, g_lo, g_hi);
 }
 
 X86Func* Find(uint32_t guest) {
-    if (guest >= g_lo && guest < g_hi) return g_table[guest - g_lo];
+    if (guest >= g_lo && guest < g_hi) return Slot(guest - g_lo);
     return nullptr;
 }
 
@@ -73,7 +102,7 @@ uint32_t KernelThunkAddress(uint32_t ordinal) { return kKernelThunkBase + ordina
 
 void x86_icall(X86Context& ctx, uint8_t* base, uint32_t target) {
     ctx.last_icall = target;
-    if (target >= g_lo && target < g_hi && g_continuation[target - g_lo]) throw X86Resume{target, ctx.esp};
+    if (target >= g_lo && target < g_hi && Continuation(target - g_lo)) throw X86Resume{target, ctx.esp};
     if (X86Func* f = dispatch::Find(target)) {
         f(ctx, base);
         return;

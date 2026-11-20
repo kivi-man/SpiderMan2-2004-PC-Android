@@ -39,11 +39,9 @@ constexpr float kFrameW = 640, kFrameH = 480;
 float HudSize() { return app::WideClose() ? app::kCloseHud : 1.0f; }
 
 float GetF(uint8_t* base, uint32_t va) {
-    float v;
-    std::memcpy(&v, &X86_MEM32(va), 4);
-    return v;
+    return X86_MEMF32(va);
 }
-void SetF(uint8_t* base, uint32_t va, float v) { std::memcpy(&X86_MEM32(va), &v, 4); }
+void SetF(uint8_t* base, uint32_t va, float v) { X86_MEMF32(va) = v; }
 
 // 4:3's height at 16:9: tan(fov / 2) four thirds as wide
 float Wider(float fov) {

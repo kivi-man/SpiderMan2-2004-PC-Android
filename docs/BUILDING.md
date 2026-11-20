@@ -156,6 +156,23 @@ cd out/run_arm && SWITCH=1 PULSE=1 qemu-aarch64-static ../harness_arm/sm2 "/path
 It runs about ten times slower than the PC build: the title screen comes after about a minute, the city
 after six to ten minutes.
 
+### Big-endian (PowerPC)
+
+The same test build for a big-endian processor, the PS3's PPU, run under `qemu-ppc64`. `XBE_BIG_ENDIAN` keeps
+guest memory little-endian as on the console: the generated code's memory macros swap bytes on the way in and out
+([`cpu/x86_ops.h`](../sdk/runtime/cpu/x86_ops.h)), the runtime reads console data with
+[`core/le.h`](../sdk/runtime/core/le.h).
+
+```sh
+sudo apt install g++-powerpc64-linux-gnu qemu-user
+CXX=powerpc64-linux-gnu-g++ ARCH=-mcpu=cell DEFS="-DXBE_BIG_ENDIAN=1" GEN_OPT=-O2 LDFLAGS=-static \
+    bash sdk/harness/build.sh -r . -g generated/game -o out/harness_ppc -n sm2
+cd out/run_ppc && SWITCH=1 PULSE=1 qemu-ppc64 ../harness_ppc/sm2 "/path/to/your/game"
+```
+
+A generated object is rebuilt only when its partition changes: after changing the memory macros, delete
+`out/harness_ppc/gen/*.o`.
+
 ## Tests
 
 [`tools/test`](../tools/test) holds the tests for the disc image reader, run against your own copy:

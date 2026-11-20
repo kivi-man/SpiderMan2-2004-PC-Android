@@ -155,8 +155,4 @@ inline float ArgF(const A& a, int i) {
     std::memcpy(&f, &v, 4);
     return f;
 }
-inline float GF(uint32_t va) {
-    float f;
-    std::memcpy(&f, ::kernel::HostPtr(va), 4);
-    return f;
-}
+inline float GF(uint32_t va) { return x86_ld_le<float>(::kernel::HostPtr(va)); }

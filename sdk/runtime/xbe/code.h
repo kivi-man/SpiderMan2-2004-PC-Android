@@ -8,6 +8,8 @@
 //   then the entry point and the kernel imports' address (4 bytes each, with the retail keys).
 #include <cstdint>
 #include <cstring>
+
+#include "core/le.h"
 #include <vector>
 
 namespace xbe {
@@ -16,7 +18,7 @@ inline bool CodeBytes(const std::vector<uint8_t>& f, std::vector<uint8_t>& out) 
     out.clear();
     auto u32 = [&](size_t at, uint32_t& v) {
         if (at + 4 > f.size()) return false;
-        std::memcpy(&v, f.data() + at, 4);
+        v = x86_ld_le<uint32_t>(f.data() + at);
         return true;
     };
     auto put = [&](uint32_t v) {

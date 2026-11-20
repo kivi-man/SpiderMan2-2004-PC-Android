@@ -1,0 +1,413 @@
+diff --git a/src/library/compiler_context.cc b/src/library/compiler_context.cc
+index be2d1ef..20f1692 100644
+--- a/src/library/compiler_context.cc
++++ b/src/library/compiler_context.cc
+@@ -22,6 +22,7 @@ extern char * strdup(const char *s1);
+ #include "glsl/ir_optimization.h"
+ #include "glsl/ir_print_visitor.h"
+ #include "glsl/program.h"
++#include "program/program.h"  // RSXGL_RELEASE_PATCH
+ 
+ extern "C" {
+   struct nvfx_vertex_program * compiler_context__translate_vp(struct gl_context * mesa_ctx, struct gl_shader_program * program,struct pipe_stream_output_info * stream_info,struct tgsi_token **);
+@@ -92,6 +93,25 @@ program_string_notify( struct gl_context *ctx,
+ 
+ }
+ 
++// RSXGL_RELEASE2_PATCH: st_delete_program's work for RSXGL's programs
++static void
++rsxgl_delete_program(struct gl_context * ctx,struct gl_program * prog)
++{
++  if(prog -> Target == GL_VERTEX_PROGRAM_ARB) {
++    struct st_vertex_program * stvp = (struct st_vertex_program *)prog;
++    if(stvp -> glsl_to_tgsi) free_glsl_to_tgsi_visitor(stvp -> glsl_to_tgsi);
++    stvp -> glsl_to_tgsi = 0;
++  }
++  else if(prog -> Target == GL_FRAGMENT_PROGRAM_ARB) {
++    struct st_fragment_program * stfp = (struct st_fragment_program *)prog;
++    if(stfp -> glsl_to_tgsi) free_glsl_to_tgsi_visitor(stfp -> glsl_to_tgsi);
++    stfp -> glsl_to_tgsi = 0;
++    if(stfp -> tgsi.tokens) free((void *)stfp -> tgsi.tokens);  // ureg_get_tokens: MALLOC
++    stfp -> tgsi.tokens = 0;
++  }
++  _mesa_delete_program(ctx,prog);
++}
++
+ compiler_context_t::compiler_context_t(pipe_context * pipe)
+ {
+   // the mesa context:
+@@ -131,6 +151,7 @@ compiler_context_t::compiler_context_t(pipe_context * pipe)
+   mesa_ctx -> Const.MaxTransformFeedbackSeparateComponents = RSXGL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
+   mesa_ctx -> Const.MaxTransformFeedbackInterleavedComponents = RSXGL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
+ 
++  mesa_ctx -> Driver.DeleteProgram = rsxgl_delete_program;  // RSXGL_RELEASE2_PATCH
+   mesa_ctx -> Driver.NewShader = new_shader;
+   mesa_ctx -> Driver.NewProgram = new_program;
+   mesa_ctx -> Driver.ProgramStringNotify = program_string_notify;
+@@ -349,3 +370,16 @@ compiler_context_t::destroy_fp(nvfx_fragment_program * nvfx_fp)
+     return;
+   }
+ }
++
++// RSXGL_RELEASE_PATCH: the linked shaders (IR with the built-ins, TGSI) once the program is translated
++void
++compiler_context_t::release_linked(struct gl_shader_program * program)
++{
++  for(unsigned int i = 0;i < MESA_SHADER_TYPES;++i) {
++    struct gl_shader * sh = program -> _LinkedShaders[i];
++    if(sh == 0) continue;
++    _mesa_reference_program(mesa_ctx,&sh -> Program,NULL);
++    ralloc_free(sh);
++    program -> _LinkedShaders[i] = 0;
++  }
++}
+diff --git a/src/library/compiler_context.h b/src/library/compiler_context.h
+index 5635035..101977a 100644
+--- a/src/library/compiler_context.h
++++ b/src/library/compiler_context.h
+@@ -34,6 +34,7 @@ struct compiler_context_t {
+   void bind_frag_data_location(struct gl_shader_program *,unsigned int,const char *);
+   void transform_feedback_varyings(struct gl_shader_program *,unsigned int,const char **,unsigned int);
+   void link_program(struct gl_shader_program *);
++  void release_linked(struct gl_shader_program *);  // RSXGL_RELEASE_PATCH
+   void destroy_program(struct gl_shader_program *);
+   
+   struct nvfx_vertex_program * translate_vp(struct gl_shader_program *,struct pipe_stream_output_info *,struct tgsi_token **);
+diff --git a/src/library/compiler_translate.c b/src/library/compiler_translate.c
+index d4cffc9..a353ad2 100644
+--- a/src/library/compiler_translate.c
++++ b/src/library/compiler_translate.c
+@@ -12,6 +12,25 @@
+ #include "nvfx/nv40_vertprog.h"
+ 
+ #include "tgsi/tgsi_transform.h"
++#include "tgsi/tgsi_dump.h"
++#include <stdio.h>
++
++// RSXGL_DUMPVP_PATCH
++int rsxgl_dump_programs = 0;
++
++static void
++rsxgl_dump_vp(const struct tgsi_token * tokens,const struct nvfx_vertex_program * vp)
++{
++  static char text[32768];
++  tgsi_dump_str(tokens,0,text,sizeof(text));
++  printf("rsxgl vp tgsi:\n%s\n",text);
++  if(vp == 0 || vp == NVFX_VP_FAILED) { printf("rsxgl vp: failed\n"); return; }
++  printf("rsxgl vp: %u instructions, %u constants\n",vp -> nr_insns,vp -> nr_consts);
++  for(unsigned i = 0;i < vp -> nr_insns;++i)
++    printf("rsxgl vp %3u: %08x %08x %08x %08x\n",i,vp -> insns[i].data[0],vp -> insns[i].data[1],vp -> insns[i].data[2],vp -> insns[i].data[3]);
++  for(unsigned i = 0;i < vp -> nr_consts;++i)
++    printf("rsxgl vp const %3u: index %d (%g %g %g %g)\n",i,vp -> consts[i].index,vp -> consts[i].value[0],vp -> consts[i].value[1],vp -> consts[i].value[2],vp -> consts[i].value[3]);
++}
+ 
+ extern struct nvfx_vertex_program*
+ nvfx_vertprog_translate(struct nvfx_context *nvfx, const struct pipe_shader_state* vps, struct tgsi_shader_info* info);
+@@ -128,6 +147,8 @@ compiler_context__translate_vp(struct gl_context * mesa_ctx, struct gl_shader_pr
+ 	NVFX_VP(INST_CONST_SRC_SHIFT);
+     }
+ 
++  if(rsxgl_dump_programs) rsxgl_dump_vp(tgsi.tokens,nvfx_vp);  // RSXGL_DUMPVP_PATCH
++
+  end:
+ 
+   ureg_destroy(ureg);
+diff --git a/src/library/framebuffer.cc b/src/library/framebuffer.cc
+index b31c10c..48248fc 100644
+--- a/src/library/framebuffer.cc
++++ b/src/library/framebuffer.cc
+@@ -455,7 +455,8 @@ rsxgl_framebuffer_renderbuffer(rsxgl_context_t * ctx,const framebuffer_t::name_t
+   // Attach the renderbuffer to it:
+   if(renderbuffer_name != 0) {
+     framebuffer.attachment_types.set(rsx_attachment,RSXGL_ATTACHMENT_TYPE_RENDERBUFFER);
+-    framebuffer.attachments[rsx_attachment] = renderbuffer_t::gl_object_type::ref(renderbuffer_name);
++    renderbuffer_t::gl_object_type::ref(renderbuffer_name);  // RSXGL_ATTACH_PATCH: ref() returns the count, not the name
++    framebuffer.attachments[rsx_attachment] = renderbuffer_name;
+   }
+ 
+   rsxgl_framebuffer_invalidate(ctx,framebuffer_name,framebuffer);
+@@ -490,7 +491,8 @@ rsxgl_framebuffer_texture(rsxgl_context_t * ctx,const framebuffer_t::name_type f
+ 
+   if(texture_name != 0) {
+     framebuffer.attachment_types.set(rsx_attachment,RSXGL_ATTACHMENT_TYPE_TEXTURE);
+-    framebuffer.attachments[rsx_attachment] = texture_t::gl_object_type::ref(texture_name);
++    texture_t::gl_object_type::ref(texture_name);  // RSXGL_ATTACH_PATCH: ref() returns the count, not the name
++    framebuffer.attachments[rsx_attachment] = texture_name;
+     framebuffer.attachment_layers[rsx_attachment] = layer;
+     framebuffer.attachment_levels[rsx_attachment] = level;
+   }
+@@ -1124,7 +1126,7 @@ rsxgl_framebuffer_validate_complete(rsxgl_context_t * ctx,framebuffer_t & frameb
+ 											     depth_pformat,
+ 											     PIPE_TEXTURE_RECT,
+ 											     1,
+-											     PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_DEPTH_STENCIL))) : true);
++											     PIPE_BIND_DEPTH_STENCIL /* RSXGL_DEPTH_PATCH */))) : true);
+ 
+       if(complete) {
+ 	complete_write_mask.all |= mask.all;
+@@ -1202,7 +1204,7 @@ rsxgl_framebuffer_validate_complete(rsxgl_context_t * ctx,framebuffer_t & frameb
+       }
+ 
+       // Depth buffer:
+-      if(complete && (framebuffer.write_masks[0].parts.depth || framebuffer.write_masks[0].parts.stencil)) {
++      if(complete && framebuffer.attachment_types.get(4) != RSXGL_ATTACHMENT_TYPE_NONE) {  // RSXGL_FBDEPTH_PATCH: attached, written or not
+ 	const uint32_t type = framebuffer.attachment_types.get(4);
+ 	if(type == RSXGL_ATTACHMENT_TYPE_RENDERBUFFER) {
+ 	  renderbuffer_t & renderbuffer = renderbuffer_t::storage().at(framebuffer.attachments[4]);
+@@ -1212,7 +1214,7 @@ rsxgl_framebuffer_validate_complete(rsxgl_context_t * ctx,framebuffer_t & frameb
+ 						     renderbuffer.pformat,
+ 						     PIPE_TEXTURE_RECT,
+ 						     1,
+-						     PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_DEPTH_STENCIL))) {
++						     PIPE_BIND_DEPTH_STENCIL /* RSXGL_DEPTH_PATCH */))) {
+ 	    depth_pformat = renderbuffer.pformat;
+ 	    
+ 	    w = std::min(w,renderbuffer.size[0]);
+@@ -1229,7 +1231,7 @@ rsxgl_framebuffer_validate_complete(rsxgl_context_t * ctx,framebuffer_t & frameb
+ 						     texture.pformat,
+ 						     PIPE_TEXTURE_RECT,
+ 						     1,
+-						     PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_DEPTH_STENCIL))) {
++						     PIPE_BIND_DEPTH_STENCIL /* RSXGL_DEPTH_PATCH */))) {
+ 	    depth_pformat = texture.pformat;
+ 	    
+ 	    w = std::min(w,texture.size[0]);
+@@ -1334,8 +1336,21 @@ glReadPixels (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GL
+       RSXGL_ERROR_(GL_INVALID_OPERATION);
+     }
+   }
+-  else {
++  else if(pixels != 0 && width > 0 && height > 0) {
++    // RSXGL_READPIXELS_PATCH
++    const uint32_t timestamp = rsxgl_timestamp_create(ctx,1);
++    rsxgl_framebuffer_validate(ctx,framebuffer,timestamp);
++    rsxgl_timestamp_post(ctx,timestamp);
++    if(framebuffer.color_pformat != PIPE_FORMAT_NONE && framebuffer.read_address != 0) {
++      rsxgl_timestamp_wait(ctx,timestamp);
++      width = std::min(width,(GLsizei)framebuffer.size[0] - x);
++      height = std::min(height,(GLsizei)framebuffer.size[1] - y);
++      const unsigned dst_stride = (util_format_get_stride(pdstformat,width) + 3) & ~3u;  // GL_PACK_ALIGNMENT 4
++      util_format_translate(pdstformat,pixels,dst_stride,0,0,
++                            framebuffer.color_pformat,framebuffer.read_address,framebuffer.read_surface.pitch,x,y,width,height);
++    }
+   }
++  RSXGL_NOERROR_();
+ }
+ 
+ void
+@@ -1530,7 +1545,8 @@ rsxgl_draw_framebuffer_validate(rsxgl_context_t * ctx,uint32_t timestamp)
+ 
+       gcmContextData * context = ctx -> gcm_context();
+       
+-      if(format != 0 && color_targets != 0) {
++      // RSXGL_FBDEPTH_PATCH: a depth buffer alone sets its surfaces too (no colour target enabled)
++      if(format != 0 && (color_targets != 0 || framebuffer.depth_pformat != PIPE_FORMAT_NONE)) {
+ 	for(framebuffer_t::attachment_size_type i = 0;i < RSXGL_MAX_FRAMEBUFFER_SURFACES;++i) {
+ 	  rsxgl_emit_surface(context,i,framebuffer.draw_surfaces[i]);
+ 	}
+diff --git a/src/library/name_space.h b/src/library/name_space.h
+index eddf48d..9711850 100644
+--- a/src/library/name_space.h
++++ b/src/library/name_space.h
+@@ -192,7 +192,7 @@ public:
+       const size_t bitfield_size = location.index + 1;
+       
+       if(bitfield_size > bitfield().size) {
+-	std::cout << "resizing bitfield array: " << bitfield_size << std::endl;
++	printf("resizing bitfield array: %lu\n", (unsigned long)bitfield_size);
+ 	bitfield().resize(bitfield_size);
+       }
+       
+diff --git a/src/library/program.cc b/src/library/program.cc
+index 72215ad..b602862 100644
+--- a/src/library/program.cc
++++ b/src/library/program.cc
+@@ -1,3 +1,4 @@
++#include <stdio.h>
+ // RSXGL - Graphics library for the PS3 GPU.
+ //
+ // Copyright (c) 2011 Alexander Betts (alex.betts@gmail.com)
+@@ -703,14 +704,27 @@ glLinkProgram (GLuint program_name)
+ 
+   info += std::string(program.mesa_program -> InfoLog);
+ 
++    // RSXGL_LINK_PATCH: translated first; a program nvfx cannot translate fails to link
++  pipe_stream_output_info stream_info;
++  tgsi_token * vp_tokens = 0;
+   if(program.mesa_program -> LinkStatus) {
+-    pipe_stream_output_info stream_info;
+-    tgsi_token * vp_tokens = 0;
+-
+     program.nvfx_vp = cctx -> translate_vp(program.mesa_program,&stream_info,&vp_tokens);
+     program.nvfx_fp = cctx -> translate_fp(program.mesa_program);
+-    rsxgl_assert(program.nvfx_vp != 0);
+-    rsxgl_assert(program.nvfx_fp != 0);
++    if(program.nvfx_vp == 0 || program.nvfx_fp == 0) {
++      info += std::string("RSXGL: the ") + (program.nvfx_vp == 0 ? "vertex" : "fragment") +
++        " program has an instruction the RSX compiler cannot translate\n";
++      program.mesa_program -> LinkStatus = 0;
++    }
++    else if(program.nvfx_vp -> nr_insns > 512) {  // RSXGL_VPLIMIT_PATCH
++      char n[96];
++      sprintf(n,"RSXGL: the vertex program has %u instructions, the RSX runs 512\n",program.nvfx_vp -> nr_insns);
++      info += n;
++      program.mesa_program -> LinkStatus = 0;
++    }
++  }
++
++  if(program.mesa_program -> LinkStatus) {
++
+ 
+     cctx -> link_vp_fp(program.nvfx_vp,program.nvfx_fp);
+ 
+@@ -887,14 +901,18 @@ glLinkProgram (GLuint program_name)
+ 	if(uniform_storage -> type -> base_type != GLSL_TYPE_SAMPLER) {
+ 	  program_t::uniform_t uniform;
+ 	  uniform.type = rsxgl_glsl_type_to_rsxgl_type(type);
+-	  uniform.count = type -> matrix_columns;
++	  // RSXGL_ARRAYS_PATCH: arrays count every element
++	  const unsigned int array_elements = uniform_storage -> array_elements ? uniform_storage -> array_elements : 1;
++	  if(type -> is_array()) type = type -> fields.array;
++	  uniform.type = rsxgl_glsl_type_to_rsxgl_type(type);
++	  uniform.count = type -> matrix_columns * array_elements;
+ 
+ #if 0
+ 	  rsxgl_debug_printf("\t\ttype:%u count:%u\n",(unsigned int)uniform.type,(unsigned int)uniform.count);
+ #endif
+ 
+ 	  uniform.values_index = uniform_values.size();
+-	  std::fill_n(std::back_inserter(uniform_values),type -> vector_elements * type -> matrix_columns,ieee32_t());
++	  std::fill_n(std::back_inserter(uniform_values),type -> vector_elements * uniform.count,ieee32_t());
+ 	  
+ 	  // Search for it in vp:
+ 	  // store vp index
+@@ -921,16 +939,23 @@ glLinkProgram (GLuint program_name)
+ 	  for(unsigned int i = 0,n = gl_fp -> Parameters -> NumParameters;i < n;++i) {
+ 	    gl_program_parameter * parameter = gl_fp -> Parameters -> Parameters + i;
+ 	    if(parameter -> Type == PROGRAM_UNIFORM && strcmp(parameter -> Name,uniform_storage -> name) == 0) {
+-	      nvfx_fp_constant_map_t::const_iterator it = nvfx_fp_constant_map.find(i);
+-	      if(it != nvfx_fp_constant_map.end()) {
++	      // every element (parameter i + j): its offsets in the fragment program, a count first
++	      bool any = false;
++	      for(unsigned int j = 0;j < uniform.count;++j) any = any || nvfx_fp_constant_map.count(i + j);
++	      if(any) {
+ 		uniform.enabled.set(RSXGL_FRAGMENT_SHADER);
+ 		uniform.program_offsets_index = program_offsets.size();
+-		
+-		const std::deque< uint32_t > & offsets = it -> second;
+-		program_offsets.push_back(offsets.size());
+-
+-		for(std::deque< uint32_t >::const_iterator jt = offsets.begin(),jt_end = offsets.end();jt != jt_end;++jt) {
+-		  program_offsets.push_back(*jt / 4);
++		for(unsigned int j = 0;j < uniform.count;++j) {
++		  nvfx_fp_constant_map_t::const_iterator it = nvfx_fp_constant_map.find(i + j);
++		  if(it == nvfx_fp_constant_map.end()) {
++		    program_offsets.push_back(0);
++		    continue;
++		  }
++		  const std::deque< uint32_t > & offsets = it -> second;
++		  program_offsets.push_back(offsets.size());
++		  for(std::deque< uint32_t >::const_iterator jt = offsets.begin(),jt_end = offsets.end();jt != jt_end;++jt) {
++		    program_offsets.push_back(*jt / 4);
++		  }
+ 		}
+ 	      }
+ 	      break;
+@@ -1224,6 +1249,7 @@ glLinkProgram (GLuint program_name)
+     }
+ 
+     program.linked = GL_TRUE;
++    cctx -> release_linked(program.mesa_program);  // RSXGL_RELEASE_PATCH
+ 
+ #if 0
+     rsxgl_debug_printf("wrote %u names bytes\n",(unsigned int)(pnames - program.names.get()));
+diff --git a/src/library/striped_object_array.h b/src/library/striped_object_array.h
+index 1a55b11..fab4873 100644
+--- a/src/library/striped_object_array.h
++++ b/src/library/striped_object_array.h
+@@ -16,7 +16,7 @@
+ #include <boost/fusion/include/zip.hpp>
+ #include <boost/type_traits.hpp>
+ 
+-#include <iostream>
++#include <cstdio>
+ 
+ #include "cxxutil.h"
+ 
+diff --git a/src/library/textures.cc b/src/library/textures.cc
+index 1ed370c..cfcec70 100644
+--- a/src/library/textures.cc
++++ b/src/library/textures.cc
+@@ -1547,7 +1547,7 @@ rsxgl_tex_image_format(rsxgl_context_t * ctx,texture_t & texture,uint8_t dims,bo
+     RSXGL_ERROR(GL_INVALID_VALUE,false);
+   }
+ 
+-  const pipe_format pdstformat = (texture.levels[0].pformat != PIPE_FORMAT_NONE) ?
++    const pipe_format pdstformat0 = (texture.levels[0].pformat != PIPE_FORMAT_NONE) ?
+     texture.levels[0].pformat :
+     rsxgl_choose_format(ctx -> screen(),
+ 			glinternalformat,GL_NONE,GL_NONE,
+@@ -1558,6 +1558,9 @@ rsxgl_tex_image_format(rsxgl_context_t * ctx,texture_t & texture,uint8_t dims,bo
+ 			1,
+ 			PIPE_BIND_SAMPLER_VIEW);
+ 
++    // RSXGL_DEPTH_PATCH: no sampler form (depth formats): a depth/stencil one
++  const pipe_format pdstformat = pdstformat0 != PIPE_FORMAT_NONE ? pdstformat0 :
++    rsxgl_choose_format(ctx -> screen(),glinternalformat,GL_NONE,GL_NONE,PIPE_TEXTURE_2D,1,PIPE_BIND_DEPTH_STENCIL);
+   if(pdstformat == PIPE_FORMAT_NONE) {
+     RSXGL_ERROR(GL_INVALID_VALUE,false);
+   }
+@@ -1695,7 +1698,15 @@ rsxgl_tex_image(rsxgl_context_t * ctx,texture_t & texture,uint8_t dims,bool cube
+   const bool result = rsxgl_tex_image_format(ctx,texture,dims,cube,rect,_level,glinternalformat,width,height,depth);
+ 
+   if(result) {
+-    const pipe_format psrcformat = rsxgl_choose_source_format(format,type);
++        // RSXGL_DEPTH2_PATCH: depth pixels, or none at all
++    pipe_format psrcformat = rsxgl_choose_source_format(format,type);
++    if(psrcformat == PIPE_FORMAT_NONE) {
++      if(format == GL_DEPTH_COMPONENT && type == GL_FLOAT) psrcformat = PIPE_FORMAT_Z32_FLOAT;
++      else if(format == GL_DEPTH_COMPONENT && type == GL_UNSIGNED_INT) psrcformat = PIPE_FORMAT_Z32_UNORM;
++      else if(format == GL_DEPTH_COMPONENT && type == GL_UNSIGNED_SHORT) psrcformat = PIPE_FORMAT_Z16_UNORM;
++      else if(format == GL_DEPTH_STENCIL && type == GL_UNSIGNED_INT_24_8) psrcformat = PIPE_FORMAT_S8_UINT_Z24_UNORM;
++      else if(data == 0 && ctx -> buffer_binding.names[RSXGL_PIXEL_UNPACK_BUFFER] == 0) psrcformat = texture.levels[_level].pformat;
++    }
+ 
+     if(psrcformat == PIPE_FORMAT_NONE) {
+       RSXGL_ERROR_(GL_INVALID_VALUE);
+diff --git a/src/library/uniforms.cc b/src/library/uniforms.cc
+index a6b2f1d..29fffaf 100644
+--- a/src/library/uniforms.cc
++++ b/src/library/uniforms.cc
+@@ -162,8 +162,8 @@ rsxgl_uniform(rsxgl_context_t * ctx,
+     RSXGL_ERROR_(GL_INVALID_OPERATION);
+   }
+ 
+-  if((Height * count) > uniform.count) {
+-    RSXGL_ERROR_(GL_INVALID_OPERATION);
++  if((Height * count) > uniform.count) {  // RSXGL_CLAMP_PATCH: set what fits
++    count = uniform.count / Height;
+   }
+ 
+   program.invalid_uniforms = 1;
+@@ -640,7 +640,7 @@ rsxgl_uniforms_validate(rsxgl_context_t * ctx,program_t & program)
+ 	  const program_t::instruction_size_type * pfp_offsets = program.program_offsets.get() + uniform.program_offsets_index;
+ 
+ 	  for(program_t::uniform_size_type j = 0;j < count;++j,pvalues += width) {
+-	    for(program_t::instruction_size_type offsets_count = *pfp_offsets++;offsets_count > 0;--offsets_count,++pfp_offsets) {
++	    for(program_t::instruction_size_type offsets_count = *pfp_offsets++;offsets_count > 0;--offsets_count) {  // RSXGL_ARRAYS_PATCH: the body steps
+ 	      rsxgl_inline_transfer(context,rsxgl_rsx_ucode_offset(program.fp_ucode_offset + *pfp_offsets++),width,pvalues);
+ 	    }
+ 	  }
+diff --git a/src/nvfx/nvfx_vertprog.c b/src/nvfx/nvfx_vertprog.c
+index bf2d056..a9b6a5b 100644
+--- a/src/nvfx/nvfx_vertprog.c
++++ b/src/nvfx/nvfx_vertprog.c
+@@ -295,6 +295,8 @@ nvfx_vp_emit(struct nvfx_vpc *vpc, struct nvfx_insn insn)
+ 	hw = vpc->vpi->data;
+ 
+ 	hw[0] |= (insn.cc_test << NVFX_VP(INST_COND_SHIFT));
++	if (insn.cc_test != NVFX_COND_TR)  /* RSXGL_CONDTEST_PATCH */
++		hw[0] |= NVFX_VP(INST_COND_TEST_ENABLE);
+ 	hw[0] |= ((insn.cc_swz[0] << NVFX_VP(INST_COND_SWZ_X_SHIFT)) |
+ 		  (insn.cc_swz[1] << NVFX_VP(INST_COND_SWZ_Y_SHIFT)) |
+ 		  (insn.cc_swz[2] << NVFX_VP(INST_COND_SWZ_Z_SHIFT)) |

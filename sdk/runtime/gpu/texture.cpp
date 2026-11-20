@@ -121,8 +121,7 @@ uint8_t Clamp255(int v) { return uint8_t(v < 0 ? 0 : v > 255 ? 255 : v); }
 
 // one texel to B, G, R, A
 void Texel(uint32_t fmt, const uint8_t* p, uint8_t* o) {
-    uint16_t s16;
-    std::memcpy(&s16, p, 2);
+    uint16_t s16 = x86_ld_le<uint16_t>(p);
     switch (fmt) {
         case 0x00: case 0x13:
             o[0] = o[1] = o[2] = p[0];
@@ -236,10 +235,8 @@ void Texel(uint32_t fmt, const uint8_t* p, uint8_t* o) {
 }
 
 float DepthTexel(uint32_t fmt, const uint8_t* p) {
-    uint32_t v;
-    uint16_t s;
-    std::memcpy(&v, p, 4);
-    std::memcpy(&s, p, 2);
+    uint32_t v = x86_ld_le<uint32_t>(p);
+    uint16_t s = x86_ld_le<uint16_t>(p);
     switch (fmt) {
         case 0x2A: case 0x2E: return float(v >> 8) / 16777215.0f;
         case 0x2C: case 0x30: return float(s) / 65535.0f;

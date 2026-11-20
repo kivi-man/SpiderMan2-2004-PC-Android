@@ -47,3 +47,14 @@ Built on your computer by `build.sh` to make the `.nro`; not part of it. CMake d
 
 The SDK's Windows PC build also uses Dear ImGui and SDL ([`sdk/THIRD_PARTY.txt`](sdk/THIRD_PARTY.txt)); the
 Switch port doesn't.
+
+## Added by the Windows, Android and PS3 builds
+
+| Component | Used for | License | Where |
+|---|---|---|---|
+| [SDL](https://github.com/libsdl-org/SDL) 3.4 | Windows: controllers. Android: window, OpenGL ES context, sound, touch, controllers; its Android project template and Java classes are in `android/` | zlib | Fetched by CMake; `android/app/src/main/java/org/libsdl/app/` from SDL's `android-project` |
+| [Dear ImGui](https://github.com/ocornut/imgui) v1.91.0 | Windows: the SDK's overlay | MIT | Fetched by CMake |
+| `GL/glcorearb.h`, [Khronos OpenGL Registry](https://github.com/KhronosGroup/OpenGL-Registry) | Android: the desktop GL names the renderer is written with | MIT | `android/third_party/GL/glcorearb.h` |
+| [Gradle wrapper](https://docs.gradle.org/current/userguide/gradle_wrapper.html) | Android: the build | Apache 2.0 | `android/gradle/wrapper/` |
+| [ps3toolchain](https://github.com/ps3dev/ps3toolchain), [PSL1GHT](https://github.com/ps3dev/PSL1GHT) | PS3: compiler and SDK | GPL (toolchain), MIT (PSL1GHT) | Not included |
+| [RSXGL](https://github.com/gzorin/RSXGL) by Alexander Betts, with Mesa's GLSL compiler | PS3: OpenGL on the RSX | BSD 2-clause (RSXGL), MIT (Mesa) | Not included; `ps3/rsxgl/rsxgl.patch` is this port's changes to it |

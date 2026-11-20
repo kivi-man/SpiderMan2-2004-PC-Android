@@ -64,5 +64,8 @@ struct Stats {
     uint32_t total_pages, available_pages, virtual_committed, contiguous_used, system_used;
 };
 Stats Query();
+#ifdef XBE_PS3
+size_t BackedBytes();  // host memory backing the guest
+#endif
 
 }  // namespace mem

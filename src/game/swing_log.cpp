@@ -42,8 +42,7 @@ X86_FUNC(sub_0011C4D0) {
     if (g_lines >= 150) return;
     uint32_t a = X86_MEM32(self + 0x14), b = X86_MEM32(self + 0x18);
     bool allowed = X86_MEM8(self + 0x20) != 0, drawn = X86_MEM8(self + 0x21) != 0;
-    float angle;
-    std::memcpy(&angle, &X86_MEM32(self + 8), 4);
+    float angle = X86_MEMF32(self + 8);
     Swing& w = g_swing;
     if (start) {
         Report(w);

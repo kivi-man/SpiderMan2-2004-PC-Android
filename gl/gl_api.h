@@ -1,7 +1,11 @@
 #pragma once
 // The OpenGL 4.3 core functions the renderer calls, loaded through eglGetProcAddress: the same code on the Switch
-// (Mesa's nouveau driver) and on Linux (any Mesa driver, llvmpipe for the headless test build).
+// (Mesa's nouveau driver) and on Linux (any Mesa driver, llvmpipe for the headless test build). On the PS3 (XBE_RSXGL)
+// they are RSXGL's OpenGL 3.1 subset with stand ins for the rest (gl/gl_rsx.cpp).
 #include <GL/glcorearb.h>
+
+#include <cstdint>
+#include <vector>
 
 #ifndef GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
 #define GL_COMPRESSED_RGBA_S3TC_DXT1_EXT 0x83F1
@@ -142,10 +146,18 @@ bool Load(void* (*get)(const char*), const char** missing);
 // GL_EXTENSIONS holds this one
 bool HasExtension(const char* name);
 
+#if XBE_GLES || XBE_RSXGL
+// S3TC (DXT1, 3, 5) blocks into RGBA8 rows, for GPUs and libraries without them
+std::vector<uint8_t> DecodeS3tc(GLenum format, GLsizei w, GLsizei h, const uint8_t* src, GLsizei size);
+#endif
+
 }  // namespace glapi
 
-// the functions are called by their GL names
+// the functions are called by their GL names; GLAPI_NO_ALIAS: a file that declares the library's own functions under
+// these names (ps3/gl_procs.cpp) takes only the lists
+#ifndef GLAPI_NO_ALIAS
 #define GLAPI_ALIAS(ret, name, params) using glapi::name;
 GL_FUNCTIONS(GLAPI_ALIAS)
 GL_OPTIONAL_FUNCTIONS(GLAPI_ALIAS)
 #undef GLAPI_ALIAS
+#endif

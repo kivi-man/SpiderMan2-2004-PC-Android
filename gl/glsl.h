@@ -19,6 +19,10 @@ namespace glsl {
 // on the left and right edges stay there (those past the edges are squeezed).
 constexpr uint8_t kTexSharp = 1;
 
+// OpenGL ES: a decode nibble's top bit, the backend's: a BGRA colour element read as RGBA, swapped back in the vertex
+// shader (the low 3 bits keep the gpu::VertexDecode)
+constexpr uint32_t kDecodeSwapRB = 8;
+
 // a vertex program's microcode; regs: the v registers the draw supplies, bit per register; decode: Assembled::decode
 std::string VertexProgram(const std::vector<uint32_t>& program, uint16_t regs, uint64_t decode, bool quad);
 // D3D's fixed function vertex pipeline; pretransformed for XYZRHW vertices

@@ -119,7 +119,7 @@ public:
     explicit Threaded(std::unique_ptr<Backend> inner) : inner_(std::move(inner)), ranges_(StateRanges()) {
         ring_ = mem::AllocSystem(kHeaderRing, 64);
         cur_ = NewBatch();
-#ifdef _WIN32
+#if defined(_WIN32) || defined(XBE_PS3)
         std::thread([this] { Run(); }).detach();
 #else
         // a stack with room: GL drivers compile shaders on it, and std::thread gets 128 KB on the Switch

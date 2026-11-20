@@ -25,11 +25,9 @@ void Convert(uint32_t type, const uint8_t* p, float* o) {
     uint32_t kind = type & 15;
     uint32_t n = std::min<uint32_t>((type >> 4) & 15, 4);
     if (type == kTypeFloat2H) {
-        float v[3];
-        std::memcpy(v, p, 12);
-        o[0] = v[0];
-        o[1] = v[1];
-        o[3] = v[2];
+        o[0] = x86_ld_le<float>(p);
+        o[1] = x86_ld_le<float>(p + 4);
+        o[3] = x86_ld_le<float>(p + 8);
         return;
     }
     switch (kind) {
@@ -40,28 +38,19 @@ void Convert(uint32_t type, const uint8_t* p, float* o) {
             o[3] = p[3] / 255.0f;
             break;
         case 1:  // NORMSHORT
-            for (uint32_t i = 0; i < n; i++) {
-                int16_t s;
-                std::memcpy(&s, p + i * 2, 2);
-                o[i] = std::max(s / 32767.0f, -1.0f);
-            }
+            for (uint32_t i = 0; i < n; i++) o[i] = std::max(x86_ld_le<int16_t>(p + i * 2) / 32767.0f, -1.0f);
             break;
         case 2:  // FLOAT
-            std::memcpy(o, p, n * 4);
+            for (uint32_t i = 0; i < n; i++) o[i] = x86_ld_le<float>(p + i * 4);
             break;
         case 4:  // PBYTE
             for (uint32_t i = 0; i < n; i++) o[i] = p[i] / 255.0f;
             break;
         case 5:  // SHORT
-            for (uint32_t i = 0; i < n; i++) {
-                int16_t s;
-                std::memcpy(&s, p + i * 2, 2);
-                o[i] = s;
-            }
+            for (uint32_t i = 0; i < n; i++) o[i] = x86_ld_le<int16_t>(p + i * 2);
             break;
         case 6: {  // NORMPACKED3, 11 11 10 signed
-            uint32_t v;
-            std::memcpy(&v, p, 4);
+            uint32_t v = x86_ld_le<uint32_t>(p);
             int32_t x = int32_t(v << 21) >> 21;
             int32_t y = int32_t(v << 10) >> 21;
             int32_t z = int32_t(v) >> 22;
@@ -230,8 +219,7 @@ IndexBounds IndexRange(const uint8_t* ip, uint32_t count) {
     uint16_t lo16 = 0xFFFF;
     uint16_t hi16 = 0;
     for (uint32_t i = 0; i < count; i++) {
-        uint16_t v;
-        std::memcpy(&v, ip + i * 2, 2);
+        uint16_t v = x86_ld_le<uint16_t>(ip + i * 2);
         lo16 = std::min(lo16, v);
         hi16 = std::max(hi16, v);
     }
@@ -241,9 +229,7 @@ IndexBounds IndexRange(const uint8_t* ip, uint32_t count) {
 // logical vertex numbers in draw order
 uint32_t DrawVertex(const State& s, const DrawRange& d, uint32_t i) {
     if (!d.ip) return d.start + i;
-    uint16_t v;
-    std::memcpy(&v, d.ip + i * 2, 2);
-    return v + s.base_vertex;
+    return x86_ld_le<uint16_t>(d.ip + i * 2) + s.base_vertex;
 }
 
 // the input registers fed by a bound stream, also marked in out.regs

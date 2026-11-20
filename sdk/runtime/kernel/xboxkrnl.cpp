@@ -135,8 +135,7 @@ KERNEL_EXPORT(291, RtlInitializeCriticalSection, 1) {
 KERNEL_EXPORT(277, RtlEnterCriticalSection, 1) {
     uint32_t cs = a[0];
     uint32_t me = Current()->ethread;
-    auto* lock_count = reinterpret_cast<int32_t*>(HostPtr(cs + 0x10));
-    if (__atomic_add_fetch(lock_count, 1, __ATOMIC_SEQ_CST) == 0) {
+    if (int32_t(AtomicFetchAdd32(cs + 0x10, 1) + 1) == 0) {  // LockCount
         W32(cs + 0x18, me);
         W32(cs + 0x14, 1);
         return 0;
@@ -154,29 +153,28 @@ KERNEL_EXPORT(277, RtlEnterCriticalSection, 1) {
 
 KERNEL_EXPORT(294, RtlLeaveCriticalSection, 1) {
     uint32_t cs = a[0];
-    auto* lock_count = reinterpret_cast<int32_t*>(HostPtr(cs + 0x10));
     uint32_t rec = R32(cs + 0x14) - 1;
     W32(cs + 0x14, rec);
     if (rec) {
-        __atomic_sub_fetch(lock_count, 1, __ATOMIC_SEQ_CST);
+        AtomicFetchAdd32(cs + 0x10, uint32_t(-1));
         return 0;
     }
     W32(cs + 0x18, 0);
-    if (__atomic_sub_fetch(lock_count, 1, __ATOMIC_SEQ_CST) >= 0) SetEvent(*FromPointer(cs));
+    if (int32_t(AtomicFetchAdd32(cs + 0x10, uint32_t(-1)) - 1) >= 0) SetEvent(*FromPointer(cs));
     return 0;
 }
 
 KERNEL_EXPORT(306, RtlTryEnterCriticalSection, 1) {
     uint32_t cs = a[0];
     uint32_t me = Current()->ethread;
-    int32_t idle = -1;  // LockCount of a free section
-    if (__atomic_compare_exchange_n(reinterpret_cast<int32_t*>(HostPtr(cs + 0x10)), &idle, 0, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+    uint32_t idle = 0xFFFFFFFFu;  // LockCount of a free section
+    if (AtomicCas32(cs + 0x10, idle, 0)) {
         W32(cs + 0x18, me);
         W32(cs + 0x14, 1);
         return 1;
     }
     if (R32(cs + 0x18) != me) return 0;
-    __atomic_add_fetch(reinterpret_cast<int32_t*>(HostPtr(cs + 0x10)), 1, __ATOMIC_SEQ_CST);
+    AtomicFetchAdd32(cs + 0x10, 1);
     W32(cs + 0x14, R32(cs + 0x14) + 1);
     return 1;
 }
@@ -1114,8 +1112,7 @@ static std::string FormatGuest(X86Context& ctx, uint32_t fmt_va, uint32_t args_v
             continue;
         }
         if (c == 'f' || c == 'g' || c == 'e') {
-            double d;
-            std::memcpy(&d, HostPtr(ap), 8);
+            double d = x86_ld_le<double>(HostPtr(ap));
             ap += 8;
             std::snprintf(buf, sizeof(buf), (spec + c).c_str(), d);
             out += buf;

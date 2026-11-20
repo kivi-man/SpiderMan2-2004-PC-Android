@@ -205,11 +205,11 @@ std::string VsInputs(uint16_t regs, uint64_t decode) {
     bool packed = false;
     for (int r = 0; r < 16; r++) {
         if (!((regs >> r) & 1)) continue;
-        uint32_t d = uint32_t(decode >> (r * 4)) & 15;
+        uint32_t d = uint32_t(decode >> (r * 4)) & 7;
         if (d == gpu::kDecodePacked) {
             s += F("layout(location = %d) in uint p%d;\nvec4 v%d;\n", r, r, r);
             packed = true;
-        } else if (d == gpu::kDecodeFloat2H) {
+        } else if (d == gpu::kDecodeFloat2H || (uint32_t(decode >> (r * 4)) & kDecodeSwapRB)) {
             s += F("layout(location = %d) in vec4 p%d;\nvec4 v%d;\n", r, r, r);
         } else {
             s += F("layout(location = %d) in vec4 v%d;\n", r, r);
@@ -227,9 +227,10 @@ std::string VsHead(uint16_t regs, uint64_t decode, bool quad) {
     std::string s = std::string(kHead) + kUniforms + kVsHelpers + VsInputs(regs, decode) + Varyings("out", quad) + "void main() {\n";
     for (int r = 0; r < 16; r++) {
         if (!((regs >> r) & 1)) continue;
-        uint32_t d = uint32_t(decode >> (r * 4)) & 15;
+        uint32_t d = uint32_t(decode >> (r * 4)) & 7;
         if (d == gpu::kDecodePacked) s += F("    v%d = unpack_np3(p%d);\n", r, r);
-        if (d == gpu::kDecodeFloat2H) s += F("    v%d = vec4(p%d.xy, 0.0, p%d.z);\n", r, r, r);
+        else if (d == gpu::kDecodeFloat2H) s += F("    v%d = vec4(p%d.xy, 0.0, p%d.z);\n", r, r, r);
+        else if (uint32_t(decode >> (r * 4)) & kDecodeSwapRB) s += F("    v%d = p%d.zyxw;\n", r, r);
     }
     return s;
 }

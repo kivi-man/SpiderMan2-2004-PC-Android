@@ -541,7 +541,12 @@ AttribFormat GlFormat(uint8_t format, uint32_t decode) {
         case DXGI_FORMAT_R32_FLOAT: f.size = 1; break;
         case DXGI_FORMAT_R32G32_FLOAT: f.size = 2; break;
         case DXGI_FORMAT_R32G32B32_FLOAT: f.size = 3; break;
+#if XBE_GLES
+        // ES has no BGRA attributes: read as RGBA, the shader swaps (kDecodeSwapRB)
+        case DXGI_FORMAT_B8G8R8A8_UNORM: f = {4, GL_UNSIGNED_BYTE, GL_TRUE, false}; break;
+#else
         case DXGI_FORMAT_B8G8R8A8_UNORM: f = {GL_BGRA, GL_UNSIGNED_BYTE, GL_TRUE, false}; break;
+#endif
         case DXGI_FORMAT_R16_SNORM: f = {1, GL_SHORT, GL_TRUE, false}; break;
         case DXGI_FORMAT_R16G16_SNORM: f = {2, GL_SHORT, GL_TRUE, false}; break;
         case DXGI_FORMAT_R16G16B16A16_SNORM: f = {4, GL_SHORT, GL_TRUE, false}; break;
@@ -763,7 +768,7 @@ in vec2 uv;
 layout(binding = 0) uniform sampler2D img;
 layout(binding = 1) uniform sampler2D lut;
 uniform vec4 opts;  // x gamma, y filter (0 bilinear, 1 box, 2 Catmull-Rom), z box taps per axis
-uniform vec4 step;  // xy: a screen pixel in uv
+uniform vec4 pxstep;  // xy: a screen pixel in uv
 layout(location = 0) out vec4 o;
 vec4 bicubic(vec2 uv) {
     vec2 size = vec2(textureSize(img, 0)), p = uv * size - 0.5, f = fract(p), c = floor(p) + 0.5;
@@ -784,7 +789,7 @@ void main() {
         int n = int(opts.z);
         c = vec4(0.0);
         for (int y = 0; y < n; y++)
-            for (int x = 0; x < n; x++) c += textureLod(img, t + step.xy * ((vec2(x, y) + 0.5) / float(n) - 0.5), 0.0);
+            for (int x = 0; x < n; x++) c += textureLod(img, t + pxstep.xy * ((vec2(x, y) + 0.5) / float(n) - 0.5), 0.0);
         c /= float(n * n);
     } else {
         c = textureLod(img, t, 0.0);
@@ -804,7 +809,7 @@ in vec2 uv;
 layout(binding = 0) uniform sampler2D img;
 layout(binding = 1) uniform sampler2D lut;
 uniform vec4 opts;  // x gamma, y filter (0 bilinear, 1 box, 2 Catmull-Rom), z box taps per axis, w 1: a CRT's tube
-uniform vec4 step;  // xy: a screen pixel in uv; z the scanlines' period in screen pixels
+uniform vec4 pxstep;  // xy: a screen pixel in uv; z the scanlines' period in screen pixels
 uniform vec4 crt;   // x the CRT filter: 0 off, 1 light, 2 strong
 layout(location = 0) out vec4 o;
 // the CRT filter's curved glass (strong): the picture bulges out, its edges and corners bent in
@@ -824,7 +829,7 @@ vec3 crtLook(vec3 c, vec2 t, vec2 u) {
     g *= 0.25;
     c += g * g * (strong ? 0.22 : 0.12);
     float luma = dot(c, vec3(0.299, 0.587, 0.114));
-    float ph = fract(gl_FragCoord.y / step.z), band = 1.0 - abs(ph * 2.0 - 1.0);
+    float ph = fract(gl_FragCoord.y / pxstep.z), band = 1.0 - abs(ph * 2.0 - 1.0);
     float scan = 1.0 - (strong ? 0.50 : 0.28) * band * band * (1.0 - 0.45 * clamp(luma, 0.0, 1.0));
     int col = int(gl_FragCoord.x) % 3;
     float m = strong ? 0.68 : 0.84;
@@ -839,13 +844,13 @@ vec3 crtLook(vec3 c, vec2 t, vec2 u) {
 // opts.w 1: the 70s set's round-cornered, bulging tube; 2: the 2000s set's flat-faced one, squarer and evener
 vec3 tube(vec3 c) {
     bool flat2000 = opts.w == 2.0;
-    vec2 size = 1.0 / step.xy, p = uv * size;
+    vec2 size = 1.0 / pxstep.xy, p = uv * size;
     float r = size.y * (flat2000 ? 0.018 : 0.045);
     vec2 q = abs(p - size * 0.5) - (size * 0.5 - r);
     float corner = length(max(q, 0.0)) - r;
     vec2 e = uv * 2.0 - 1.0;
     float shade = 1.0 - (flat2000 ? 0.14 : 0.30) * smoothstep(0.45, 1.45, length(e * vec2(0.92, 1.0)));
-    float phase = fract(gl_FragCoord.y / step.z);
+    float phase = fract(gl_FragCoord.y / pxstep.z);
     float scan = 1.0 - (flat2000 ? 0.10 : 0.16) * smoothstep(0.55, 1.0, 1.0 - abs(phase * 2.0 - 1.0));
     if (crt.x > 0.0) shade = scan = 1.0;
     float glare = flat2000 ? 0.03 * (1.0 - smoothstep(0.0, 0.25, abs(uv.y - 0.93))) * smoothstep(0.1, 0.5, uv.x)
@@ -873,7 +878,7 @@ void main() {
         int n = int(opts.z);
         c = vec4(0.0);
         for (int y = 0; y < n; y++)
-            for (int x = 0; x < n; x++) c += textureLod(img, t + step.xy * ((vec2(x, y) + 0.5) / float(n) - 0.5), 0.0);
+            for (int x = 0; x < n; x++) c += textureLod(img, t + pxstep.xy * ((vec2(x, y) + 0.5) / float(n) - 0.5), 0.0);
         c /= float(n * n);
     } else {
         c = textureLod(img, t, 0.0);
@@ -886,7 +891,7 @@ void main() {
     if (crt.x > 0.0) {
         c.rgb = crtLook(c.rgb, t, u);
         // past the curved glass's edge: the dark bezel
-        vec2 out2 = max(-u, u - 1.0) / step.xy;
+        vec2 out2 = max(-u, u - 1.0) / pxstep.xy;
         c.rgb *= 1.0 - smoothstep(-0.5, 0.5, max(out2.x, out2.y));
     }
     if (opts.w > 0.0) c.rgb = tube(c.rgb);
@@ -1362,11 +1367,23 @@ bool GlBackend::Init(uint32_t width, uint32_t height) {
     glGetIntegerv(GL_MINOR_VERSION, &minor);
     LOGI("gl: %s, %s, OpenGL %d.%d, guest %ux%u", reinterpret_cast<const char*>(glGetString(GL_VENDOR)),
          reinterpret_cast<const char*>(glGetString(GL_RENDERER)), major, minor, width, height);
+#if XBE_RSXGL
+    // RSXGL (the PS3): OpenGL 3.1 with gl/gl_rsx.cpp's stand ins for the rest; its uniform buffers live on the CPU
+    ubo_align_ = 16;
+#elif XBE_GLES
+    if (major * 10 + minor < 31) {
+        LOGE("gl: OpenGL ES 3.1 is needed");
+        return false;
+    }
+#else
     if (major * 10 + minor < 43) {
         LOGE("gl: OpenGL 4.3 is needed");
         return false;
     }
+#endif
+#if !XBE_RSXGL
     glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &ubo_align_);
+#endif
     // anisotropic filtering: core in 4.6, an extension before
     if (major * 10 + minor >= 46 || glapi::HasExtension("GL_EXT_texture_filter_anisotropic") ||
         glapi::HasExtension("GL_ARB_texture_filter_anisotropic")) {
@@ -1377,11 +1394,19 @@ bool GlBackend::Init(uint32_t width, uint32_t height) {
     LOGI("gl: anisotropic filtering up to %ux", max_aniso_);
     glGenVertexArrays(1, &vao_);
     glBindVertexArray(vao_);
+#if XBE_GLES
+    bool persistent = glBufferStorage && glapi::HasExtension("GL_EXT_buffer_storage");
+#else
     bool persistent = glBufferStorage && (major * 10 + minor >= 44 || glapi::HasExtension("GL_ARB_buffer_storage"));
+#endif
     LOGI("gl: %s buffers", persistent ? "persistently mapped" : "mapped per write");
     vertices_.Init(GL_ARRAY_BUFFER, 32u << 20, persistent);
     indices_.Init(GL_ELEMENT_ARRAY_BUFFER, 8u << 20, persistent);
+#if XBE_RSXGL
+    uniforms_.Init(GL_UNIFORM_BUFFER, 1u << 20, persistent);  // a CPU copy there (gl_rsx.cpp): started over when full
+#else
     uniforms_.Init(GL_UNIFORM_BUFFER, 16u << 20, persistent);
+#endif
     // stages without a texture read opaque white of their kind
     uint32_t white = 0xFFFFFFFF;
     auto plain = [&](GLuint& t, GLenum kind) {
@@ -1424,10 +1449,10 @@ bool GlBackend::Init(uint32_t width, uint32_t height) {
     sides_ = Link(fsv, Compile(GL_FRAGMENT_SHADER, kSidesFragment));
     if (!present_) return false;
     present_opts_ = glGetUniformLocation(present_, "opts");
-    present_step_ = glGetUniformLocation(present_, "step");
+    present_step_ = glGetUniformLocation(present_, "pxstep");
     if (present_crt_prog_) {
         crt_opts_ = glGetUniformLocation(present_crt_prog_, "opts");
-        crt_step_ = glGetUniformLocation(present_crt_prog_, "step");
+        crt_step_ = glGetUniformLocation(present_crt_prog_, "pxstep");
         crt_crt_ = glGetUniformLocation(present_crt_prog_, "crt");
     }
     if (sides_) {
@@ -1564,6 +1589,9 @@ GLuint GlBackend::Framebuffer(const Target* rt, const Target* ds) {
     glReadBuffer(rt ? GL_COLOR_ATTACHMENT0 : GL_NONE);
     GLenum st = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (st != GL_FRAMEBUFFER_COMPLETE) LOG_FIRST(8, "gl: framebuffer incomplete (%X) for %ux%u", st, rt ? rt->gw : ds->gw, rt ? rt->gh : ds->gh);
+    // the RSX draws colour and depth with one size and pitch: a depth smaller than the colour is dropped there
+    if (rt && ds && (ds->w < rt->w || ds->h < rt->h))
+        LOG_FIRST(16, "gl: colour %ux%u (%ux%u drawn) with a smaller depth %ux%u (%ux%u drawn)", rt->gw, rt->gh, rt->w, rt->h, ds->gw, ds->gh, ds->w, ds->h);
     fbos_[key] = fbo;
     return fbo;
 }
@@ -2273,7 +2301,7 @@ void GlBackend::DrawGeometry(const Assembled& a) {
         for (int r = 0; r < 16; r++) {
             if ((a.regs >> r) & 1) {
                 const VertexElement& e = lay.el[r];
-                AttribFormat f = GlFormat(e.format, uint32_t(a.decode >> (r * 4)) & 15);
+                AttribFormat f = GlFormat(e.format, uint32_t(a.decode >> (r * 4)) & 7);
                 glEnableVertexAttribArray(GLuint(r));
                 if (f.integer)
                     glVertexAttribIFormat(GLuint(r), f.size, f.type, e.offset);
@@ -2291,7 +2319,22 @@ void GlBackend::DrawGeometry(const Assembled& a) {
                                                   : (a.strip ? GL_TRIANGLE_STRIP : GL_TRIANGLES);
     if (a.index_count) {
         size_t ibytes = size_t(a.index_count) * (a.index16 ? 2 : 4);
+#if XBE_BIG_ENDIAN
+        // the title's own 16-bit indices are little-endian, the GPU reads the host's order (the 32-bit list is built
+        // on the host)
+        size_t iat;
+        if (a.index16) {
+            static std::vector<uint16_t> swapped;
+            swapped.resize(a.index_count);
+            const uint16_t* in = static_cast<const uint16_t*>(a.index_src);
+            for (uint32_t i = 0; i < a.index_count; i++) swapped[i] = __builtin_bswap16(in[i]);
+            iat = indices_.Put(swapped.data(), ibytes, 4);
+        } else {
+            iat = indices_.Put(a.index_src, ibytes, 4);
+        }
+#else
         size_t iat = indices_.Put(a.index_src, ibytes, 4);
+#endif
         if (Changed(c.ibuf, indices_.buf)) glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indices_.buf);
         GLenum type = a.index16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
         if (a.base_vertex)
@@ -2313,10 +2356,21 @@ void GlBackend::Draw(const State& s, uint32_t prim, uint32_t start, uint32_t cou
     Assembled& a = asm_;
     auto ta = Clock::now();
     // GL_CONVERTED=1: every vertex converted on the CPU, to compare
+#if XBE_RSXGL || XBE_BIG_ENDIAN
+    // the RSX reads few of the title's formats, and the title's bytes are little-endian: every vertex converted
+    static const bool raw = false;
+#else
     static const bool raw = !std::getenv("GL_CONVERTED");
+#endif
     bool assembled = Assemble(s, prim, start, count, indices, a, raw);
     perf_.assemble += Ms(ta);
     if (!assembled || (!a.index_count && !a.draw_count)) return;
+#if XBE_GLES
+    // BGRA colours read as RGBA: the vertex shader swaps them back (the flag is part of the program's key)
+    for (int r = 0; r < 16; r++)
+        if ((a.regs >> r) & 1 && a.elements[size_t(r)].format == DXGI_FORMAT_B8G8R8A8_UNORM)
+            a.decode |= uint64_t(glsl::kDecodeSwapRB) << (r * 4);
+#endif
     if (a.topology == Topology::Points)  // drawn a pixel a point: sprites and sizes are not drawn yet
         LOG_FIRST(8, "gl: %u points, size %g, sprites %u, scale %u", a.draw_count ? a.draw_count : a.index_count,
                   Bits(s.rs[kRsPointSize]), s.rs[kRsPointSpriteEnable], s.rs[kRsPointScaleEnable]);

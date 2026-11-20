@@ -1,12 +1,32 @@
 #pragma once
 #include <cstdint>
 
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+// A big-endian host keeps each 32 bit lane in host order, so a 64 bit half is not the two lanes' bytes in a row: q
+// is a pair of lanes that reads and writes as the value x86 sees (lane 0 the low half).
+struct X86Q64 {
+    uint32_t lo, hi;
+    operator uint64_t() const { return uint64_t(lo) | (uint64_t(hi) << 32); }
+    X86Q64& operator=(uint64_t v) {
+        lo = uint32_t(v);
+        hi = uint32_t(v >> 32);
+        return *this;
+    }
+};
+union X86Xmm {
+    float f[4];
+    uint32_t u[4];
+    int32_t i[4];
+    X86Q64 q[2];
+};
+#else
 union X86Xmm {
     float f[4];
     uint32_t u[4];
     int32_t i[4];
     uint64_t q[2];
 };
+#endif
 
 struct alignas(64) X86Context {
     uint32_t eax, ecx, edx, ebx, esp, ebp, esi, edi;

@@ -1,0 +1,680 @@
+<div align="center">
+
+[![English](https://img.shields.io/badge/lang-English-dc1e2e?style=for-the-badge)](README-switch.md)
+[![Español](https://img.shields.io/badge/idioma-Espa%C3%B1ol-1c2233?style=for-the-badge)](../README.es.md)
+
+<img src="images/banner.jpg" alt="Spider-Man 2 (original Xbox, 2004) for Nintendo Switch, an unofficial homebrew port" width="100%">
+
+# Spider-Man 2 (Xbox) for Nintendo Switch
+
+**An unofficial homebrew port of the original Xbox version of *Spider-Man 2* (Treyarch, 2004) to the Nintendo Switch.**<br>
+The game's own code, recompiled ahead of time for the Switch's processor, with the Xbox's system rebuilt
+around it. Bring your own copy of the game, unlock the port with it in your browser (on your phone too), and
+swing through New York.
+
+[![Latest release](https://img.shields.io/github/v/release/SantiBros/SpiderMan2-2004-NX?include_prereleases&style=for-the-badge&label=download&color=dc1e2e&logo=github&logoColor=white)](https://github.com/SantiBros/SpiderMan2-2004-NX/releases)
+[![Downloads](https://img.shields.io/github/downloads/SantiBros/SpiderMan2-2004-NX/total?style=for-the-badge&label=downloads&color=1c2233)](https://github.com/SantiBros/SpiderMan2-2004-NX/releases)
+![Status: playable](https://img.shields.io/badge/status-playable-2ea043?style=for-the-badge)
+![Nintendo Switch homebrew](https://img.shields.io/badge/Nintendo%20Switch-homebrew-1c2233?style=for-the-badge)
+![Original Xbox, 2004](https://img.shields.io/badge/original%20Xbox-2004-1c2233?style=for-the-badge)
+![Atmosphère](https://img.shields.io/badge/CFW-Atmosph%C3%A8re-1c2233?style=for-the-badge)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1c2233?style=for-the-badge)](../LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20the%20port-FF5E5B?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/S4I32A0WMU)
+
+**[⬇ Installer page](https://santibros.github.io/SpiderMan2-2004-NX/)** · [Install](#how-to-install) · [Controls](#controls) · [Debug menu](#debug-menu) · [Status](#status) · [FAQ](#faq) · [Troubleshooting](INSTALL.md#troubleshooting) · [Changelog](../CHANGELOG.md) · [How it works](TECHNICAL.md)
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S4I32A0WMU)
+
+</div>
+
+> [!IMPORTANT]
+> **No game files are included, not in this repository and not in the releases.** You need your own
+> copy of *Spider-Man 2* for the **original Xbox**. The releases hold the port **locked**: it only opens with
+> your game's `default.xbe`, on the [installer page](https://santibros.github.io/SpiderMan2-2004-NX/) in your browser (an Android phone or a
+> computer), or you build it from your game on a computer. Please don't ask for game files in issues, and
+> never upload them, or the unlocked `.nro`, anywhere: it contains code made from the game.
+>
+> This port is for the **original Xbox version (2004)** only. The PlayStation 2, GameCube, PC, Game Boy
+> Advance, Nintendo DS and PSP versions are different programs and don't work, and neither do the
+> newer *Spider-Man* games.
+
+> [!NOTE]
+> **Playable on the Switch.** The port has been played on a Switch Lite, in handheld mode: 0.1.0 ran smoothly at
+> 480p, at the game's own pace of 30 frames a second, with its music, sound effects and voices. 0.2.0 and 0.2.1 were
+> reported slow and freezing, above all in 16:9: their logs show the game waiting for the SD card. 0.2.2 and 0.2.3
+> fix that, and [reports](#help-wanted-testers) on how it runs are welcome, as on playing docked, not confirmed
+> on a console yet. Saved games didn't load before 0.2.3. 0.3.0 was reported much slower than 0.2.3: its log shows
+> long pauses while shaders were built, which 0.3.1 fixes.
+
+> [!TIP]
+> **New in 0.4.1: the European French, German and Spanish disc works.** "Spider-Man 2 (Europe) (Fr,De,Es)" is a
+> later build of the game than the US one, so 0.4.0 turned it away; now the installer page and the port make its
+> `default.xbe` into the supported one with a small patch, locked with your own game, and play its own voices and
+> movies. Set **Voices** to Français, Deutsch or Español, with the text in any language.
+>
+> **New in 0.4.0: updates from inside the port, voices in another language, European editions, a closer 16:9 and
+> the Switch's button layout.** The debug menu's new **Update** row downloads the newest version from its GitHub
+> release (each update counts as a download there), unlocks it on the console with your own game and installs it: no
+> computer or phone needed after this one. **Voices** picks the characters' language apart from the text's, from the
+> voices your copy has: the European discs have French, German and Spanish, or Italian ones. A **European edition**
+> works when its game code is the US one's (the port and the installer page check it), and from 0.4.1 the French,
+> German and Spanish one in any case. **16:9, close view** shows
+> Spider-Man and the city a third bigger, with a HUD a tenth bigger. The new **Buttons** setting maps A to A, B to B,
+> X to X and Y to Y if you prefer the Switch's letters to the Xbox's positions. In 16:9 the cutscenes now fill the
+> screen and the minimap's pins sit on the map again, and Italian text no longer shows French.
+>
+> **New on the installer page: every version to choose from.** Its version menu has every release from 0.0.8 to
+> 0.3.1, with the newest already picked. Each one shows whether it is recommended, runs with known problems or is
+> an early test that doesn't start on a Switch, its main changes and what to watch out for. And step 1 now lists
+> every kind of file it takes.
+>
+> **New in 0.3.1: smoother than 0.3.0.** A 0.3.0 log showed the game stopping for up to 2 seconds at a time, the
+> counter dropping to 1–14 frames a second, while shaders were built: the list of them the port keeps had been
+> thrown away. 0.3.1 keeps it. It also drops a GPU measurement 0.3.0 made at every frame, which on the Switch's
+> driver can make the processor wait for the graphics chip, and the CRT filter and the CRT TV cost nothing while off.
+> And a new 4:3 decoration: a **2000s CRT TV**, silver, with stereo speakers, the A/V inputs and a flat-faced tube,
+> like the TVs the game was played on.
+>
+> **New in 0.3.0: install from your phone, and the 16:9 map fixed.** No computer needed any more: the
+> [installer page](https://santibros.github.io/SpiderMan2-2004-NX/) unlocks the port with your own game in your browser, on an Android phone or
+> a computer, and gives you the folder for your SD card. In 16:9 the city map's icons (Spider-Man, the blue stars,
+> the $ icons) now sit on their places and move with the map, and the blurred sides of 4:3 cost less at 720p and
+> 1080p. And for the retro look: a **CRT filter** (scanlines, the screen's colour stripes, glow, curved glass), and
+> a new 4:3 decoration, **CRT TV**, the picture on an old television with its wooden cabinet and knobs.
+>
+> **New in 0.2.3: saved games load, and 16:9 doesn't freeze.** Saves were written but never loaded back ("unable
+> to load saved game"): they load now, the ones already on your card too, and a copy of them is kept in
+> `sdmc:/config/SpiderMan2Xbox/save/` in case an update replaces the folder. And a tester's logs from 0.2.1
+> showed 16:9 freezing for up to 4 seconds while the game waited for the SD card to write the log: no game thread
+> writes to the card any more.
+>
+> **New in 0.2.2: 16:9 without the slowdown.** In 16:9 the port wrote a line to its log on the SD card several
+> times a frame, and the game waited for each write. That is gone, and no log line waits for the card any more.
+> And a new decoration for 4:3: **suit sides**, the web in the suit's red, blue and black.
+>
+> **New in 0.2.1: faster.** The port sets the clocks for the game by itself (**Auto**, the new default), keeps the
+> HUD 4:3 in 16:9 for much less, and at 720p and 1080p enlarges only the main picture. 1080p is now for docked play.
+>
+> **New in 0.2.0**
+> - **Sharper picture**: draw the game, its movies included, at **720p** (pixel for pixel on the handheld screen)
+>   or **1080p**, from the debug menu, instead of the Xbox's 480p.
+> - **Full screen 16:9, nothing stretched**: the game has a widescreen camera of its own that Treyarch never
+>   switched on. The port turns it on: more of the city at the sides, while the HUD, menus and movies keep
+>   their 4:3 shape in the middle.
+> - **Or 4:3 with something at the sides** instead of black bars: the picture blurred, or a spider web.
+> - **Vibration** on Joy-Con and the Pro Controller, Off, Low, Medium or High. A rumble the game leaves on stops
+>   by itself after 2 seconds.
+> - **Sharper upscaling** and **anisotropic filtering**, for crisper movies and streets in the distance.
+>
+> All the details are in the [changelog](../CHANGELOG.md).
+
+## Screenshots
+
+<p align="center">
+  <img src="images/clips/rooftop.webp" alt="A few seconds of play: Spider-Man lands on a rooftop at night, runs and climbs a glass building" width="720">
+</p>
+<p align="center"><sub>A few seconds of play on the first rooftops.</sub></p>
+
+<table>
+  <tr>
+    <td colspan="2" align="center"><img src="images/screenshots/city.jpg" alt="Spider-Man on a rooftop at dusk, with the HUD" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>The first rooftop, at dusk</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="images/screenshots/wide.jpg" alt="The first rooftop in the game's own 16:9 picture at 720p, with the HUD kept 4:3" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>New in 0.2.0: the game's own 16:9 camera, at 720p. More city at the sides, the HUD keeps its shape</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshots/sides-blur.jpg" alt="The game at 720p in 4:3 with its picture blurred at the sides"></td>
+    <td width="50%"><img src="images/screenshots/sides-web.jpg" alt="The swing control menu in 4:3 with a spider web at the sides"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>4:3 with the picture blurred at the sides</sub></td>
+    <td align="center"><sub>4:3 with a spider web at the sides</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="images/screenshots/sides-suit.jpg" alt="The first rooftop at 720p in 4:3, with the web in the suit's colours at the sides" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>New in 0.2.2: 4:3 with the web in the suit's colours at the sides</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="images/screenshots/sides-tv.jpg" alt="The first rooftop in 4:3 inside an old CRT television: a wooden cabinet, a speaker on the left, knobs on the right, the picture with rounded corners and scanlines" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>New in 0.3.0: 4:3 on a 70s CRT TV</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="images/screenshots/sides-tv2000.jpg" alt="The first rooftop in 4:3 inside a 2000s CRT television: silver plastic, speaker grilles on both sides, a power button, small buttons and yellow, white and red A/V inputs on the right" width="100%"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>New in 0.3.1: 4:3 on a 2000s CRT TV</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshots/title.jpg" alt="The title screen, PRESS START TO BEGIN"></td>
+    <td width="50%"><img src="images/screenshots/title-es.jpg" alt="The title screen in Spanish, PRESIONAR START PARA EMPEZAR"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The title screen</sub></td>
+    <td align="center"><sub>The same on a console set to Spanish</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshots/menu.jpg" alt="The swing control menu"></td>
+    <td width="50%"><img src="images/screenshots/debug-menu.jpg" alt="The port's debug menu over the game, with the frame-rate counter"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Choosing the swing controls</sub></td>
+    <td align="center"><sub>The debug menu (ZL + ZR + −) and the frame-rate counter; the numbers are an example</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="images/screenshots/start.jpg" alt="The port's start screen, Loading"></td>
+    <td width="50%"><img src="images/screenshots/not-found.jpg" alt="The port explaining what to put in the game folder"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The port's start screen, until the game draws</sub></td>
+    <td align="center"><sub>When no usable copy is found, it says what to put where</sub></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="../switch/icon.jpg" alt="The port's icon: Spider-Man's mask with the Spider-Man 2 logo" width="160"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><sub>The port's icon in the Homebrew Menu</sub></td>
+  </tr>
+</table>
+
+## Features
+
+- **The game's real code, recompiled, not emulated.** The 26,876 functions of the game's x86 code are
+  translated to C++ ahead of time and compiled for the Switch's ARM processor. The Xbox's kernel,
+  Direct3D 8, DirectSound and controller interfaces are rebuilt as native Switch code
+  ([how it works](#how-it-works)).
+- **Drawn by the Switch's GPU.** The game's Direct3D 8 drawing becomes OpenGL for the Switch's graphics
+  chip: its vertex programs and pixel combiners are translated to shaders, its textures decoded once and
+  kept, on a render thread beside the game's.
+- **At 480p, 720p or 1080p.** Every surface the game draws is made bigger alike, so the whole picture is
+  sharper, movies included, with sharper upscaling and anisotropic filtering if you like.
+- **Full screen without stretching.** The game's own hidden 16:9 camera: the wide view shows more of the city at
+  the sides, with the HUD and menus kept 4:3; the close view shows Spider-Man and the city a third bigger, with a
+  HUD a tenth bigger. The cutscenes fill the width. Or keep 4:3, with black, blurred, spider-web or suit-coloured
+  sides, or on a 2000s or a 70s CRT TV.
+- **Vibration** on Joy-Con and the Pro Controller, at the strength you choose, and never left running.
+- **Your copy in the format you have.** The US edition, or the European French, German and Spanish one. A disc
+  image (`.iso` or `.xiso`, a trimmed XISO or a full disc dump), the compressed `.cci` (Cerbios) and `.cso` (StellarOS) images that Repackinator makes, any of
+  them split into parts for a FAT32 card, or the files from the disc.
+- **Installed from your phone.** The [installer page](https://santibros.github.io/SpiderMan2-2004-NX/) unlocks
+  the port with your own copy in your browser and gives you the SD card folder, for the newest version or any
+  earlier one. Or build it from your copy on a
+  computer: on Windows `build-windows.cmd` sets up everything it needs and asks for your game; on Linux it's one
+  command.
+- **In your language.** The game takes the console's language: English, Spanish, French, German or
+  Italian menus and subtitles, from the texts every disc has. The voices are your copy's (English on the US disc;
+  French, German and Spanish, or Italian, on the European ones), in their own language if you like.
+- **A debug menu** (**ZL + ZR + −**) with the resolution, the screen shape, the vibration, a frame-rate
+  counter, the Switch's CPU, GPU and memory clocks (Auto by default, and only rates Nintendo's own profiles use,
+  given back in the HOME menu and when you quit), the language and the voices, the sound volume and the renderer. Saved in
+  `settings.ini`.
+- **Says what's wrong.** Missing data folder, an archive that needs extracting, an Xbox 360 image, another
+  release of the game: the screen explains it in plain words.
+- **Made for testing.** The log reaches the SD card several times a second, so it survives a frozen console,
+  and a status line every 2 seconds says what each of the game's threads is doing. Crashes leave a report.
+  The start screen can show the newest lines of the log too (the debug menu's start-up log).
+- **Your saves in one folder**, `save/`, apart from the cache: back it up by copying one folder, and it's kept
+  across updates, with a copy in `sdmc:/config/SpiderMan2Xbox/save/` that comes back by itself if the folder is
+  ever replaced.
+- **Controls mapped by position**, so the buttons the game shows are where your fingers expect them, or by letter
+  (A is A, B is B) if you prefer the Switch's layout.
+- **Updates from inside the port** (from 0.4.0): the debug menu's Update downloads the newest version from GitHub and
+  installs it. That is the only time the port uses the internet, and only to reach GitHub.
+
+## What you need
+
+| | What |
+|---|---|
+| **Console** | A Nintendo Switch, Switch OLED or Switch Lite running [Atmosphère](https://github.com/Atmosphere-NX/Atmosphere) with the Homebrew Menu. Use emuMMC and keep a backup of your SD card. |
+| **Game** | Your own *Spider-Man 2* for the **original Xbox**, the release whose `default.xbe` has the SHA-1 `853bcb253c5baea2d7e2d9b59e5888b4c87bb402` (title ID `4156002B`, version 4). As a disc image or as the disc's files, about 1.7 GB. `build.sh` checks it for you. |
+| **Phone or computer** | Any device with a recent web browser (Android, Windows, macOS, Linux; iPhone untested) for the [installer page](https://santibros.github.io/SpiderMan2-2004-NX/), and a way to copy files to the SD card. Or, to build the port yourself instead: Windows 10/11 (the builder sets up WSL by itself) or Linux, about 2 GB of space and 10 to 30 minutes. |
+| **SD card** | About 2 GB free. FAT32 or exFAT (on FAT32, a disc image over 4 GB must be split). |
+
+## How to install
+
+> [!TIP]
+> **New to Switch homebrew?** First set up your console with custom firmware (Atmosphère) and the
+> Homebrew Menu: the community guide [switch.hacks.guide](https://switch.hacks.guide/) explains it step by
+> step. Unsure what XBE, XISO, CCI or WSL mean? See the [glossary](INSTALL.md#glossary).
+
+<img src="images/install-steps.png" alt="Install in 4 steps: open the installer page, choose your game to unlock the port and download the SD zip, copy it and your game to the SD card, start with R + any game" width="100%">
+
+1. **Get your game as files.** A disc image of your own disc, or the files from it. PC DVD drives can't
+   read original Xbox discs: [how to get them](INSTALL.md#getting-your-game).
+2. **Open the [installer page](https://santibros.github.io/SpiderMan2-2004-NX/)** on your phone or computer, choose your game (the disc image, all
+   its parts if it is split, or just its `default.xbe`), leave the newest version picked (or choose another) and
+   download **`SpiderMan2Xbox-SD.zip`**. Your game is not
+   uploaded anywhere: the page unlocks the port with it in your browser, in a few seconds.
+3. **Copy to the SD card.** Copy the `switch` folder from the zip to the root of your SD card, then put your game
+   (the disc image, or `default.xbe` and the `data` folder) in `switch/SpiderMan2Xbox/game/`.
+4. **Play.** Hold **R** while you launch any game to open the Homebrew Menu, then choose
+   **Spider-Man 2 (Xbox)**.
+
+<details>
+<summary><b>Or build the port on your computer</b></summary>
+
+Download `SpiderMan2-2004-NX-<version>.zip` from the [Releases](https://github.com/SantiBros/SpiderMan2-2004-NX/releases) page (under **Assets**) and unzip
+it, then:
+- **On Windows:** double-click **`build-windows.cmd`** and choose your game. The first time it sets up WSL
+  and the tools by itself ([step by step](INSTALL.md#on-windows)).
+- **On Linux:** run, in the folder, pointing at your game (on Ubuntu or Debian it installs its tools the
+  first time):
+  ```sh
+  bash build.sh --copy-game "/path/to/Spider-Man 2.iso"
+  ```
+
+Either way it takes 10 to 30 minutes, plus about 10 the first time, and makes a folder with the port and your
+game in it (`SD card` on Windows, `out/sd` on Linux): copy its `switch` folder to the root of your SD card.
+</details>
+
+> [!WARNING]
+> Always open the Homebrew Menu with **R + a game** (title takeover). From the Album, homebrew only gets
+> about 440 MB of memory, and the game needs about 1.3 GB.
+
+<details>
+<summary><b>What the folder looks like on the SD card</b></summary>
+
+```
+sd:/switch/SpiderMan2Xbox/
+├── SpiderMan2Xbox.nro    the port, unlocked or built with your game (never share it: it holds code made from the game)
+├── README.txt            the player's guide
+├── game/                 YOUR game, one of:
+│   ├── Spider-Man 2.iso      a disc image (.iso .xiso .cci .cso), or all the parts of a split one
+│   └── default.xbe, data/    or the files from the disc
+├── save/                 YOUR saves: back this folder up
+│   ├── progress/             the game's saves (the Xbox's E:\UDATA for this game)
+│   └── data/                 what the game keeps for itself on the Xbox's hard disk (E:\TDATA)
+├── cache/                the rest of the Xbox's hard disk and the shader list: safe to delete
+├── logs/                 sm2_NNN.log and crash.txt: attach them to bug reports
+└── settings.ini          the debug menu's settings (delete it for the recommended ones)
+```
+
+</details>
+
+The [full install guide](INSTALL.md) covers getting your game, the installer page, building on Windows with
+WSL, updating and [troubleshooting](INSTALL.md#troubleshooting).
+
+### Updating
+
+From 0.4.0 on, the easiest way is inside the port: open the [debug menu](#debug-menu) (**ZL + ZR + −**), go to
+**Update** and press **A**; when it finds a newer version, **A** installs it and **A** again restarts the port with
+it. It needs the console online.
+
+Otherwise, or to get 0.4.0 itself, open the [installer page](https://santibros.github.io/SpiderMan2-2004-NX/) again (it always has the newest version, and every earlier one in its version menu) and copy the new zip's
+`switch` folder over the old one, or build the new version and copy its `out/sd/switch` folder. Your `game/` and
+`save/` folders stay as they are. Coming from a version before 0.1.0, which kept everything in `hdd/`? At the
+first start your saves are moved to `save/` and the rest of `hdd/` becomes `cache/`, by themselves.
+
+Going back to an older version? Choose it in the page's version menu and copy its zip's `switch` folder over the
+same way. Saved games don't load before 0.2.3, so back up `save/` first. The early tests 0.0.8 to 0.0.10 go in a
+folder of their own, `switch/SpiderMan2Xbox-<version>`, with your game copied into its `game/` too, so they never
+touch your saves.
+
+## Controls
+
+The game shows the Xbox controller's buttons. They are mapped by **position**, so the button the game
+asks for is where it is on the Xbox controller:
+
+| Xbox | Switch | | Xbox | Switch |
+|---|---|---|---|---|
+| A (bottom) | **B** | | Left / right trigger | **ZL** / **ZR** |
+| B (right) | **A** | | White / black button | **L** / **R** |
+| X (left) | **Y** | | Start / Back | **+** / **−** |
+| Y (top) | **X** | | Sticks, D-pad | the same |
+
+Prefer the Switch's letters? The [debug menu](#debug-menu)'s **Buttons** setting has a **Switch layout**: the
+game's A is the Switch's A, B is B, X is X and Y is Y.
+
+Hold **+ and −** together for one second to quit. Hold **ZL + ZR** and press **−** for the port's
+[debug menu](#debug-menu).
+
+To find where a problem comes from, hold one of these while the port starts: **L** turns the sound off,
+**R** uses the old CPU renderer (a still picture every few seconds, without the graphics chip), **ZR** keeps
+the graphics work on the game's own thread (no render thread). They last for that start only.
+
+## Debug menu
+
+Hold **ZL + ZR** and press **−** (in any order) to open it; the same, **B** or **+** close it. **Up/Down**
+picks a setting, **Left/Right** or **A** changes it, and the touch screen works too. While it is open the
+game gets no input (press **+** first if you want the game paused). Changes are saved at once in
+`settings.ini` beside the `.nro`.
+
+| Setting | Choices | What it does |
+|---|---|---|
+| Language | Auto, English, Español, Français, Deutsch, Italiano | The game's menus and subtitles, in any of its five languages from any disc. Auto follows the console; a language the game doesn't have is English. From the next start. |
+| Voices | Auto, English, Español, Français, Deutsch, Italiano | The language the characters speak (the lip sync follows). A disc has only its edition's voices: the US one English, the European ones French, German and Spanish, or Italian; the menu says which your copy has. Auto speaks the menus' language when your copy has those voices, else your copy's own. From the next start. |
+| Resolution | 480p (the console's), 720p, 1080p (docked) | How many pixels the game and its movies are drawn with. 720p fills the handheld screen pixel for pixel; 1080p, docked, is drawn bigger and shrunk, with smoother edges (in handheld mode it draws 720p, the screen's own). More work for the GPU, which the Auto GPU clock raises. |
+| Screen | 4:3 black sides, 4:3 blurred sides, 4:3 web sides, 4:3 suit sides, 4:3 2000s CRT TV, 4:3 70s CRT TV, 16:9 wide view, 16:9 close view | The picture keeps its shape. 16:9 uses the game's own wide camera: the wide view shows more of the city at the sides, with the HUD and menus 4:3 in the middle; the close view shows Spider-Man and the city a third bigger (a little less above and below), with the HUD and menus a tenth bigger. In both the letterboxed cutscenes fill the width. The 4:3 sides can be black, the picture blurred, a spider web, the web in the suit's red, blue and black, a 2000s CRT TV (silver, stereo speakers, A/V inputs, a flat-faced tube) or a 70s one (a wooden cabinet with its knobs and speaker, the picture with rounded corners and scanlines). |
+| Upscaling | Smooth, Sharp | How the movies and the picture are enlarged: Sharp keeps more detail (Catmull-Rom), Smooth is the softer look of a TV. |
+| CRT filter | Off, Light, Strong | The picture as on an old CRT television, with any Screen choice: scanlines, the screen's red, green and blue stripes, a soft glow on bright parts and darker edges; Strong also curves the glass. |
+| Texture filtering | Standard, Anisotropic 4x, 8x, 16x | Streets and building fronts seen at a slant stay sharp in the distance. Much more work for the graphics chip in the city: if the frame rate drops, go back to Standard. |
+| Buttons | Xbox layout, Switch layout | Xbox layout maps the buttons by position, as on the Xbox's controller (the game's A is the bottom button, the Switch's B). Switch layout maps them by letter: the game's A is the Switch's A, B is B, X is X, Y is Y. |
+| Vibration | Off, Low, Medium, High | The game's rumble on Joy-Con or a Pro Controller (the Switch Lite has no rumble of its own). A rumble the game leaves on stops after 2 seconds, and none runs while the menu is open or in the HOME menu. |
+| CPU clock | Auto (1785 MHz), Stock (1020 MHz), 1224, 1428, 1581, 1785 MHz | The game's translated code and the graphics driver run on the CPU. Auto keeps it at 1785 MHz while the game runs. |
+| GPU clock | Auto, Stock, 307.2, 384, 460.8, 614.4, 768 MHz | The graphics chip. Auto is 460.8 MHz (the highest Nintendo uses in handheld mode) at 480p in handheld mode, 768 MHz at 720p and docked. |
+| Memory clock | Auto (1600 MHz), Stock, 1331.2, 1600 MHz | 1600 MHz is the docked memory clock; Nintendo uses it in handheld mode too. |
+| Frame-rate counter | Off, FPS, Full | In the top left corner. Full adds the time of a frame, the draw calls, the clocks and the memory. |
+| Sound volume | 100% to 25%, Off | The game's sound, before the console's own volume. |
+| Renderer | GPU, CPU | CPU is many times slower: only to tell whether a fault in the picture comes from the GPU renderer. From the next start. |
+| Render thread | On, Off | The graphics work on a core of their own (the sound has a third). From the next start. |
+| Start-up log | Off, On | The newest log lines on the start screen while the game loads, for a photo when it doesn't start. From the next start. |
+| Update | A: check, install, restart | Asks GitHub for the newest version. A newer one is downloaded from its release (it counts among the release's downloads), unlocked here with your game's `default.xbe` like the installer page does, and put in place of the `.nro` (the old one kept as `SpiderMan2Xbox.nro.old`); A again restarts the port with it. Your saves and settings stay. Needs the internet. |
+
+The clocks only offer rates Nintendo's own performance profiles use. The console's own clocks come back
+while the port is in the HOME menu and when it closes, and the port puts yours back after docking or sleep.
+"Restore recommended settings" puts everything back to the defaults (the console's language, Auto voices, 480p, 4:3 with
+black sides, smooth upscaling, standard filtering, medium vibration, the Xbox button layout, Auto clocks, no counter, full volume, the GPU
+renderer on its own thread). The picture settings, the clocks and the vibration change at once, while you play. The
+Auto clocks use more battery than the console's own: choose Stock for a longer battery life.
+
+## Status
+
+> [!NOTE]
+> **Playable.** Played on a Switch Lite in handheld mode. As with any homebrew, back up your SD card and use emuMMC.
+
+| Part | State |
+|---|---|
+| The game's code on the Switch's processor | ✅ Recompiled and compiled; runs on a Switch Lite |
+| Reading your copy: disc images and files | ✅ All formats checked byte for byte against the extracted files, on PC and ARM |
+| Playing on a Switch | ✅ Played on a Switch Lite, in handheld mode |
+| Speed | 🧪 0.1.0 played smoothly on a Switch Lite at 480p; 0.2.0 and 0.2.1 were reported slow, above all in 16:9, where their logs show the game waiting for the SD card. 0.2.2 removes 16:9's writes to the card and 0.2.3 takes every write to the card off the game's threads (Auto clocks, a lighter 16:9 and render scale came in 0.2.1); in 4:3 at 720p a tester's 0.2.1 held 30 frames a second. 0.3.0 was reported much slower: its log shows 28–30 frames a second between long pauses while shaders were built, after its shader list was thrown away; 0.3.1 keeps the list and drops a per-frame GPU measurement: to be confirmed on a console |
+| Picture | ✅ The Switch's GPU through OpenGL, every frame |
+| 720p, 1080p, 16:9 | 🧪 New in 0.2.0, lighter in 0.2.1, the 16:9 map right in 0.3.0, the minimap, the cutscenes and the close view in 0.4.0; how fast they run on a console is to be measured |
+| Updates from the port | 🧪 New in 0.4.0: checked against GitHub and with locked files on a computer; not yet tried on a console |
+| Installer page | ✅ New in 0.3.0: unlocks the port in the browser, checked with every disc image format and split images; every version from 0.0.8 to 0.3.1 in its menu |
+| Vibration | 🧪 New in 0.2.0: needs Joy-Con or a Pro Controller, not tried on a console yet |
+| Menus, cinematics, the city | ✅ On a Switch Lite |
+| Sound | ✅ Music, sound effects and voices, on a Switch Lite |
+| Controls | ✅ Mapped by position; by letter with the Switch layout (new in 0.4.0) |
+| Docked (TV) | 🧪 Not tried yet on a console |
+| Saves | ✅ Saving and loading work since 0.2.3 (before it, saves were written but never loaded); in `save/` on the SD card, with a copy in `sdmc:/config/SpiderMan2Xbox/save/` |
+| Language | ✅ The console's: English, Spanish, French, German or Italian texts (Italian right since 0.4.0); the voices your copy has, in their own language since 0.4.0 |
+| Other editions | 🧪 The European French, German and Spanish disc runs from 0.4.1 (made into the US `default.xbe` by a patch): its voices, its movies and every text language, tried on a computer, not yet on a console. The English European and the Italian discs: not yet tried (an issue with their `default.xbe` SHA-1 helps) |
+| Debug menu, frame-rate counter | ✅ On a Switch Lite; the clocks only offer rates Nintendo's own profiles use |
+| Online | Only the debug menu's Update, to reach GitHub |
+
+**Known issues**
+- Docked play on a TV hasn't been confirmed on a console yet. Saved games didn't load before 0.2.3.
+- Reported on a console, not fixed yet: **web-swinging showing only one animation**, and **wrong reflections in
+  building windows**. A short video of each, with the `logs` folder, would show what to fix (the log's `swing:`
+  lines say which swing animations the game picks).
+- The first time through a new place can stutter briefly while shaders are built; they are kept for the next time.
+- The US disc has only English voices: the other languages' voices are on the European discs.
+- Only the game code above is supported (the US edition, and other editions built from the same code): other
+  releases need their own recompiler config.
+
+See the [changelog](../CHANGELOG.md) for what changed in each version.
+
+## Help wanted: testers
+
+The port plays on a Switch Lite in handheld mode. What helps most now is more consoles and more of the game.
+Reports in English or Spanish help most, with the `logs` folder:
+
+| What | How to help |
+|---|---|
+| 📺 **Docked** | Play with the console in the dock, on a TV, and tell how it runs (the debug menu's counter shows the frame rate). |
+| 🖼️ **720p, 1080p, 16:9** | Try the new resolutions and screen shapes, the 16:9 close view too: the frame rate in a busy street, and anything that looks out of place (a HUD piece or a marker off where it should be in 16:9). |
+| 📳 **Vibration** | With Joy-Con or a Pro Controller: does it feel right, and does it ever keep going on its own? |
+| 🕸️ **The swing and the windows** | A short video of web-swinging (does Spider-Man always use the same swing?) and of building windows whose reflections look wrong, with the `logs` folder. |
+| 💾 **Saves** | Save in the game, quit, start it again and load: does your progress come back? |
+| 🎮 **Further in** | How far did you get? Anything that stops, freezes or looks wrong along the way. |
+| 🧊 **Freezes** | If the console freezes, take a photo, restart, and send the `logs` folder and the newest files in `atmosphere/crash_reports/`. Then try once holding **L** at start (no sound), and once holding **R** (the CPU renderer). |
+| 🎨 **The picture** | A photo of anything drawn wrong, and the `logs` folder: its `perf:` lines say how fast it runs and where the time goes. |
+| 💿 **Your image format** | If your `.cci`, `.cso` or split image isn't accepted, send the log: it says why. |
+| 🇪🇺 **A European disc** | The French, German and Spanish one: does it play through on a console, with the **Voices** in time with the lips? The English or Italian one: does the installer page accept it? Send the log, or the SHA-1 the page shows. |
+
+Open an [issue](https://github.com/SantiBros/SpiderMan2-2004-NX/issues/new/choose): the form asks for everything needed.
+
+## FAQ
+
+<details>
+<summary><b>Is this an emulator?</b></summary>
+
+**No, at least not for the game's code.** An emulator reads the game's x86 instructions one by one while it
+runs (or translates them on the fly). This port uses **static recompilation**: every function of the game's
+`default.xbe` is translated to C++ once, on your computer, and that C++ is compiled into a normal Switch
+program. The Switch then runs the game's logic as its own code.
+
+What the game asks the Xbox for (the kernel, files, threads, Direct3D 8, DirectSound, the controllers) is
+answered by the port's own code, written for the Switch. The picture works much like a modern emulator's
+graphics: the game's Direct3D commands for the Xbox's GPU are turned into OpenGL for the Switch's GPU, with
+its shaders translated. See [How it works](TECHNICAL.md).
+</details>
+
+<details>
+<summary><b>Why is the .nro locked? Why is there no ready-to-play download?</b></summary>
+
+Because the `.nro` *is* the game's code, translated to the Switch's processor. Sharing it would be sharing
+the game. So the releases hold it **locked**: encrypted (AES-256-GCM) with a key made from the game's own
+`default.xbe`. Without your copy of the game it is useless; with it, the [installer page](https://santibros.github.io/SpiderMan2-2004-NX/)
+unlocks it in your browser, on your device, and nothing of your game is uploaded. You can also build the `.nro`
+from your copy on a computer instead. Either way, keep the `.nro` you get for yourself.
+</details>
+
+<details>
+<summary><b>Does it work with the PlayStation 2, GameCube or PC version?</b></summary>
+
+No. Those are different programs: each version of *Spider-Man 2* (2004) was built for its own console, and
+the PC version is a different game altogether. This port runs the **original Xbox** version only. The newer
+*Spider-Man* games (for example *Marvel's Spider-Man 2*, 2023) are unrelated.
+</details>
+
+<details>
+<summary><b>Which release of the Xbox game works?</b></summary>
+
+The US edition, whose `default.xbe` has the SHA-1 `853bcb253c5baea2d7e2d9b59e5888b4c87bb402` (title ID
+`4156002B`, version 4). From 0.4.0 another edition works too if its **game code** is the same: the program itself
+(the xbe's sections, entry point and imports, without the header and certificate that name its region), whose SHA-1
+is `b3d6d36a707840a9dcc047f0302b41edc61dfee2`. A European edition built from the same code is then accepted as it
+is, its voices included. From 0.4.1 the European French, German and Spanish edition works too ("Spider-Man 2
+(Europe) (Fr,De,Es)", `default.xbe` SHA-1 `ad4f0d360fc5a1869005331fe50f54a711426029`): it is a later build of the
+game (version 5), but its disc's data is the US one's but for its voices, its 50 Hz movies and a few texts, so a small
+patch makes its `default.xbe` into the supported one, and the port plays the disc's own voices and movies. The patch
+does nothing without that `default.xbe`, and is only published locked with it. `build.sh`, the installer page and the
+port check your copy and tell you if yours is different.
+The recompiled code matches that game code exactly; a release with other code would need its own recompiler config.
+If you have another release, an issue with its SHA-1 and game code (the builder and the port print them) helps.
+</details>
+
+<details>
+<summary><b>Where do I get the game files?</b></summary>
+
+From your own disc. This project can't help with that, and issues asking for game files will be closed.
+[Getting your game](INSTALL.md#getting-your-game) explains the usual ways to make a copy of your own disc.
+</details>
+
+<details>
+<summary><b>Which disc image formats work?</b></summary>
+
+- **`.iso` / `.xiso`**: a trimmed XISO (what `extract-xiso` makes) or a full disc dump (the video partition
+  first, as Redump's are).
+- **`.cci`**: the compressed images Repackinator makes for Cerbios.
+- **`.cso`**: the compressed images (version 2, LZ4) Repackinator and `ciso` make for StellarOS.
+- Any of them **split** into parts (`name.1.iso`, `name.2.iso`, ... or `.1.cci`, `.1.cso`): put all the parts
+  in the folder.
+- Or the **files** from the disc: `default.xbe` and the `data` folder.
+
+Every version of the port, from 0.0.8 on, reads the same formats. Not read: `.zip`, `.7z` or `.rar` archives (extract them first), Xbox 360 images, and the old zlib CSO
+(version 1) made for the PSP.
+</details>
+
+<details>
+<summary><b>My SD card is FAT32 and my image is over 4 GB</b></summary>
+
+FAT32 can't hold a file over 4 GB. Use a split image (Repackinator splits by itself, and the port reads the
+parts as one), a compressed `.cci` or `.cso` (this game fits in about 1.5 GB), or the disc's files. Or format the card as exFAT.
+</details>
+
+<details>
+<summary><b>Does it run at full speed?</b></summary>
+
+Yes, on a Switch Lite in handheld mode it plays smoothly at the game's own pace: 30 frames a second, as on
+the Xbox. The debug menu's frame-rate counter shows it on screen, and if a busy place ever drops under 30 you
+can raise the CPU clock there (up to 1785 MHz, a rate Nintendo's own profiles use). Docked play hasn't been
+measured yet.
+</details>
+
+<details>
+<summary><b>Can it fill the whole screen? Is it stretched?</b></summary>
+
+Yes, and no. Set the debug menu's **Screen** to **16:9, wide view** or **16:9, close view**. The game was made for
+4:3 TVs, but its code has a 16:9 camera that Treyarch never switched on; the port turns it on, and nothing is
+stretched. The wide view widens the camera's view, so you see more of the city at the sides, and what the game draws
+flat on the screen (the HUD, the menus, the text) is kept 4:3 in the middle. The close view keeps the camera's
+width, as the engine's own 16:9 does: Spider-Man and the city look a third bigger, with a little less above and
+below, and the HUD and menus are a tenth bigger. The cutscenes, letterboxed for the cinema, fill the width with thinner black bands;
+the logos and the attract demo stay 4:3. If you'd rather keep the original 4:3 picture, the sides can be
+black, the picture blurred, a spider web, the web in the suit's red, blue and black, or a 2000s or 70s CRT TV
+around it.
+</details>
+
+<details>
+<summary><b>Can it run at a higher resolution?</b></summary>
+
+Yes: the debug menu's **Resolution** draws the game at 720p (the handheld screen's own) or, docked, 1080p instead
+of the Xbox's 480p, movies included (1080p in handheld mode draws 720p: the screen has no more pixels). It is more
+work for the Switch's graphics chip, which the Auto GPU clock raises; if the frame rate drops, go back a step. The movies on the disc are 640×480, so they get smoother edges
+rather than new detail; **Upscaling: Sharp** keeps them crisper.
+</details>
+
+<details>
+<summary><b>Does it vibrate?</b></summary>
+
+With Joy-Con or a Pro Controller, yes: set **Vibration** in the debug menu (Medium by default). The Switch Lite has
+no rumble motor of its own, so on a Lite you feel it only through Joy-Con or a Pro Controller paired with it. If the
+game ever leaves a rumble running, it fades out by itself after 2 seconds.
+</details>
+
+<details>
+<summary><b>Can I play in Spanish?</b></summary>
+
+Yes. The game takes the console's language: set to Spanish (Spain or Latin America), French, German or
+Italian, its menus and subtitles are in that language, from the texts every disc has. The voices are the ones your
+copy has: the US disc only has English ones, so they stay in English; the European disc with French, German and
+Spanish has Spanish voices (Spain's dub), which the debug menu's **Voices** plays with any text. To choose another
+language than the console's, use the debug menu (**ZL + ZR + −**), then start the port again.
+</details>
+
+<details>
+<summary><b>Does the port go online? Can I get banned?</b></summary>
+
+Only when you use the debug menu's **Update**, and then only to GitHub (`api.github.com`, `github.com` and
+GitHub's download server): never to Nintendo. If you keep your console offline, update with the installer page
+instead. Running any homebrew needs custom firmware, which is against
+Nintendo's terms and can get a console banned from Nintendo's online services. Running homebrew on an emuMMC
+and keeping your SD card backed up is the usual advice.
+</details>
+
+<details>
+<summary><b>Where is my save, and how do I back it up?</b></summary>
+
+In `switch/SpiderMan2Xbox/save/`: the game saves into `save/progress/` as it would on the Xbox's hard disk, and
+keeps a little data of its own in `save/data/`. The port also keeps a copy in `sdmc:/config/SpiderMan2Xbox/save/`,
+up to date a few seconds after each save: if `save/progress` is ever empty at start (say, an update that replaced
+the whole folder), the copy is put back by itself. Copy the `save` folder somewhere safe from time to time too.
+`cache/` beside it can be deleted at any time. To start over from nothing, start a **New Game** in the game's
+save menu, or delete both `save/` and `sdmc:/config/SpiderMan2Xbox/`.
+</details>
+
+<details>
+<summary><b>Can I build it on Windows without WSL, or on a Mac?</b></summary>
+
+The builder is a Linux shell script, so on Windows it runs in WSL, the free Linux from Microsoft:
+`build-windows.cmd` installs it if needed and does the rest ([step by step](INSTALL.md#on-windows)).
+devkitPro also runs on macOS, but the builder hasn't been tried there.
+</details>
+
+## How it works
+
+The game is the x86 program `default.xbe`, made for the Xbox's Pentium III and its NV2A graphics chip. The port:
+
+1. **Recompiles the game's code ahead of time** with the [Xbox XBE Recomp](https://github.com/TGP482/XboxXBE-Recomp)
+   SDK's `xbe_recomp`: every function becomes C++, compiled for the Switch's ARM CPU with devkitA64.
+2. **Rebuilds the Xbox's system around it**: the kernel's 120 functions the game imports, threads and
+   timers, files (the disc's or the disc image's), Direct3D 8 with its push buffers and vertex programs,
+   DirectSound and the controllers, as native code.
+3. **Fits the Xbox's 4 GB address space** into the memory a Switch homebrew program can have, in 256 MB slices.
+4. **Draws** the game's Direct3D commands with OpenGL on the Switch's GPU (Mesa's driver, from devkitPro): the
+   vertex programs and pixel combiners become shaders, the textures are decoded from the game's memory once.
+
+More in [docs/TECHNICAL.md](TECHNICAL.md): the recompiler, the Switch layer, the disc image formats, the
+development tools and the source layout.
+
+## Building from source
+
+`build.sh` does everything: it builds the PC tools, recompiles your `default.xbe` and builds the `.nro` with
+[devkitPro](https://devkitpro.org/wiki/Getting_Started)'s `switch-dev` tools and `switch-mesa` (OpenGL):
+
+```sh
+bash build.sh --copy-game "/path/to/your/Spider-Man 2.iso"     # or the game's folder, or default.xbe
+```
+
+On Windows, `build-windows.cmd` runs the same builder in WSL.
+
+The result is `build-switch/SpiderMan2Xbox.nro`, laid out for the SD card in `out/sd/`.
+[docs/BUILDING.md](BUILDING.md) has the details, the tools used for development, the tests, and
+how a release is made.
+
+## Support
+
+If you enjoy this port, you can support my work on Ko-fi. It helps me keep updating my ports and make new ones!
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/S4I32A0WMU)
+
+## Credits
+
+Standing on the shoulders of others:
+
+- **Treyarch** and **Activision**, who made the game. Please support the original.
+- [**Xbox XBE Recomp**](https://github.com/TGP482/XboxXBE-Recomp) by TGP482: the recompiler and the Xbox runtime
+  this port is built on (in `sdk/`, with the changes listed in [docs/TECHNICAL.md](TECHNICAL.md)).
+- [**Zydis**](https://github.com/zyantific/zydis) (x86 decoding) and [**toml++**](https://github.com/marzer/tomlplusplus),
+  used by the recompiler.
+- [**XbSymbolDatabase**](https://github.com/Cxbx-Reloaded/XbSymbolDatabase), [**Cxbx-Reloaded**](https://github.com/Cxbx-Reloaded/Cxbx-Reloaded)
+  and [**xemu**](https://github.com/xemu-project/xemu): finding the XDK's functions, and the reference for how the
+  Xbox and its GPU behave.
+- [**libnx**](https://github.com/switchbrew/libnx) and the switchbrew community, [**devkitPro**](https://devkitpro.org)
+  (devkitA64, switch-tools, and the Switch port of [**Mesa**](https://mesa3d.org) the GPU renderer draws with) and
+  [**Atmosphère**](https://github.com/Atmosphere-NX/Atmosphere).
+- [**sys-clk**](https://github.com/retronx-team/sys-clk): the clock rates of the Switch's performance configurations,
+  which the debug menu's clock settings keep to.
+- The disc image formats: [**extract-xiso**](https://github.com/XboxDev/extract-xiso),
+  [**Repackinator** and XboxToolkit](https://github.com/Team-Resurgent/Repackinator) by Team Resurgent (CCI), and
+  [**ciso**](https://github.com/antangelo/ciso) by antangelo (CSO), whose formats the port reads; LZ4 by Yann Collet.
+
+Full list with licenses: [THIRD_PARTY.md](../THIRD_PARTY.md).
+
+## License
+
+The port's own code (`switch/`, `gl/`, `src/`, `tools/`, `config/`, `build.sh`) is under the [MIT License](../LICENSE). The
+SDK in `sdk/` keeps its own MIT license ([sdk/LICENSE](../sdk/LICENSE)), and the other third-party code its own
+([THIRD_PARTY.md](../THIRD_PARTY.md)). The game is not included and is not covered by these licenses in any way.
+
+## Disclaimer
+
+This is an unofficial fan project. It is not affiliated with, endorsed or sponsored by Activision, Treyarch,
+Marvel, Sony Pictures, Microsoft or Nintendo. *Spider-Man* is a trademark of Marvel; Xbox is a trademark of
+Microsoft; Nintendo Switch is a trademark of Nintendo. No game code or data is distributed here in a usable form:
+the releases' `.nro` is encrypted and only opens with your own copy of the game, and what you unlock or build with
+it is for you only.
+
+Running homebrew requires custom firmware, which is against Nintendo's terms of service and can get a console
+banned from online services; that decision is yours. The software is provided as is, without warranty (see
+[LICENSE](../LICENSE)).
+
+---
+
+<div align="center">
+
+A project by **SantiBros** · If you like it, star the repo ⭐ and share it
+
+</div>

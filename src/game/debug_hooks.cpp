@@ -47,10 +47,9 @@ X86_FUNC(sub_00397162) {
         static long logged = 0;                                                                                    \
         if (logged < n) {                                                                                          \
             logged++;                                                                                              \
-            float v;                                                                                               \
-            std::memcpy(&v, &X86_MEM32(ctx.esp + 4), 4);                                                           \
+            float v = X86_MEMF32(ctx.esp + 4);                                                                     \
             LOGI("rumble effect %s: %08X strength %.3f on %u from %08X", label, ctx.ecx, v, X86_MEM8(ctx.ecx + 0x5C), \
-                 X86_MEM32(ctx.esp));                                                                              \
+                 uint32_t(X86_MEM32(ctx.esp)));                                                                        \
         }                                                                                                          \
         __imp__sub_##addr(ctx, base);                                                                              \
     }
@@ -72,8 +71,8 @@ X86_FUNC(sub_0028E810) {
     calls++;
     if (calls != n && calls != n + 120) return;
     uint32_t player = X86_MEM32(0x501124), effect = player ? X86_MEM32(player + 4) : 0;
-    LOGI("rumble test: pad %08X motors %u %u, player %08X effect %08X on %u", pad, X86_MEM16(pad + 0x49),
-         X86_MEM16(pad + 0x4B), player, effect, effect ? X86_MEM8(effect + 0x5C) : 0);
+    LOGI("rumble test: pad %08X motors %u %u, player %08X effect %08X on %u", pad, unsigned(X86_MEM16(pad + 0x49)),
+         unsigned(X86_MEM16(pad + 0x4B)), player, effect, effect ? X86_MEM8(effect + 0x5C) : 0);
     X86Context saved = ctx;
     float v = calls == n ? 1.0f : 0.0f;
     uint32_t bits;

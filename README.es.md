@@ -1,6 +1,6 @@
 <div align="center">
 
-[![English](https://img.shields.io/badge/lang-English-1c2233?style=for-the-badge)](README.md)
+[![English](https://img.shields.io/badge/lang-English-1c2233?style=for-the-badge)](docs/README-switch.md)
 [![Español](https://img.shields.io/badge/idioma-Espa%C3%B1ol-dc1e2e?style=for-the-badge)](README.es.md)
 
 <img src="docs/images/banner.jpg" alt="Spider-Man 2 (Xbox original, 2004) para Nintendo Switch, un port homebrew no oficial" width="100%">

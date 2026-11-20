@@ -285,15 +285,15 @@ KERNEL_EXPORT(319, RtlWalkFrameChain, 3) { return 0; }
 
 // interlocked, fastcall
 
-KERNEL_FASTCALL(53, InterlockedIncrement) { return uint32_t(__atomic_add_fetch(&G<int32_t>(ctx.ecx), 1, __ATOMIC_SEQ_CST)); }
-KERNEL_FASTCALL(52, InterlockedDecrement) { return uint32_t(__atomic_sub_fetch(&G<int32_t>(ctx.ecx), 1, __ATOMIC_SEQ_CST)); }
-KERNEL_FASTCALL(54, InterlockedExchange) { return __atomic_exchange_n(&G<uint32_t>(ctx.ecx), ctx.edx, __ATOMIC_SEQ_CST); }
-KERNEL_FASTCALL(55, InterlockedExchangeAdd) { return __atomic_fetch_add(&G<uint32_t>(ctx.ecx), ctx.edx, __ATOMIC_SEQ_CST); }
+KERNEL_FASTCALL(53, InterlockedIncrement) { return AtomicFetchAdd32(ctx.ecx, 1) + 1; }
+KERNEL_FASTCALL(52, InterlockedDecrement) { return AtomicFetchAdd32(ctx.ecx, uint32_t(-1)) - 1; }
+KERNEL_FASTCALL(54, InterlockedExchange) { return AtomicExchange32(ctx.ecx, ctx.edx); }
+KERNEL_FASTCALL(55, InterlockedExchangeAdd) { return AtomicFetchAdd32(ctx.ecx, ctx.edx); }
 
 // destination in ecx, exchange in edx, comparand on the stack
 static void InterlockedCompareExchangeEntry(X86Context& ctx, uint8_t*) {
     uint32_t expected = R32(ctx.esp + 4);
-    __atomic_compare_exchange_n(&G<uint32_t>(ctx.ecx), &expected, ctx.edx, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+    AtomicCas32(ctx.ecx, expected, ctx.edx);
     Return(ctx, expected, 1);
 }
 static const bool kreg_InterlockedCompareExchange =

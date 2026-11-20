@@ -1,4 +1,5 @@
 #include "kernel/disc.h"
+#include "core/le.h"
 
 #include <algorithm>
 #include <cctype>
@@ -49,10 +50,8 @@ bool Disc::Open(const std::filesystem::path& path, std::string& error) {
             std::memcmp(volume + 0x7EC, kMagic, kMagicSize) != 0)
             continue;
         base_ = base;
-        uint32_t sector, size;
-        std::memcpy(&sector, volume + 0x14, 4);
-        std::memcpy(&size, volume + 0x18, 4);
-        std::memcpy(&time_, volume + 0x1C, 8);
+        uint32_t sector = x86_ld_le<uint32_t>(volume + 0x14), size = x86_ld_le<uint32_t>(volume + 0x18);
+        time_ = x86_ld_le<uint64_t>(volume + 0x1C);
         root_ = {{}, base + uint64_t(sector) * kSector, size, true, {}};
         if (!ReadDir(root_, 0)) {
             error = "its folders cannot be read (" + image_->Kind() + ")";
@@ -85,13 +84,9 @@ bool Disc::ReadDir(Entry& dir, int depth) {
         todo.pop_back();
         if (at + kEntryHead > dir.size || seen[at / 4]) continue;
         seen[at / 4] = true;
-        uint16_t left, right;
-        uint32_t sector, size;
-        std::memcpy(&left, &table[at], 2);
-        std::memcpy(&right, &table[at + 2], 2);
+        uint16_t left = x86_ld_le<uint16_t>(&table[at]), right = x86_ld_le<uint16_t>(&table[at + 2]);
         if (left == 0xFFFF) continue;
-        std::memcpy(&sector, &table[at + 4], 4);
-        std::memcpy(&size, &table[at + 8], 4);
+        uint32_t sector = x86_ld_le<uint32_t>(&table[at + 4]), size = x86_ld_le<uint32_t>(&table[at + 8]);
         uint8_t attributes = table[at + 0xC], length = table[at + 0xD];
         if (at + kEntryHead + length > dir.size) continue;
         if (left) todo.push_back(uint32_t(left) * 4);

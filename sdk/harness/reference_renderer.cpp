@@ -82,13 +82,9 @@ struct Plane {
     Vec Load(uint32_t x, uint32_t y) const {
         const uint8_t* p = At(x, y);
         if (bytes != 4) {
-            uint16_t c;
-            std::memcpy(&c, p, 2);
-            return Rgb565(c);
+            return Rgb565(x86_ld_le<uint16_t>(p));
         }
-        uint32_t c;
-        std::memcpy(&c, p, 4);
-        Vec v = Unpack(c);
+        Vec v = Unpack(x86_ld_le<uint32_t>(p));
         if (format == 0x07 || format == 0x1E) v[3] = 1;  // X8R8G8B8
         return v;
     }
@@ -98,7 +94,7 @@ struct Plane {
         auto q = [](float v, float top) { return std::lround(Sat(v) * top); };
         if (bytes != 4) {
             uint16_t v = uint16_t(q(c[0], 31)) << 11 | uint16_t(q(c[1], 63)) << 5 | uint16_t(q(c[2], 31));
-            std::memcpy(p, &v, 2);
+            x86_st_le<uint16_t>(p, v);
             return;
         }
         const int channel[4] = {2, 1, 0, 3};  // bytes b g r a
@@ -108,26 +104,21 @@ struct Plane {
     void LoadDepth(uint32_t x, uint32_t y, uint32_t& z, uint32_t& stencil) const {
         const uint8_t* p = At(x, y);
         if (Depth16()) {
-            uint16_t v;
-            std::memcpy(&v, p, 2);
-            z = v;
+            z = x86_ld_le<uint16_t>(p);
             stencil = 0;
             return;
         }
-        uint32_t v;
-        std::memcpy(&v, p, 4);
+        uint32_t v = x86_ld_le<uint32_t>(p);
         z = v >> 8;
         stencil = v & 0xFF;
     }
     void StoreDepth(uint32_t x, uint32_t y, uint32_t z, uint32_t stencil) const {
         uint8_t* p = At(x, y);
         if (Depth16()) {
-            uint16_t v = uint16_t(z);
-            std::memcpy(p, &v, 2);
+            x86_st_le<uint16_t>(p, uint16_t(z));
             return;
         }
-        uint32_t v = z << 8 | (stencil & 0xFF);
-        std::memcpy(p, &v, 4);
+        x86_st_le<uint32_t>(p, z << 8 | (stencil & 0xFF));
     }
 };
 
@@ -146,21 +137,44 @@ Plane OpenPlane(const Surface& s) {
     return p;
 }
 
-// textures, level 0 decoded to floats
+// textures, level 0 decoded to floats; on the PS3 (256 MB for everything) to RGBA8, or a float's bits for R32F, a
+// quarter of the memory
+#if defined(XBE_PS3)
+using Stored = uint32_t;
+inline Stored Store(const Vec& c) {
+    auto q = [](float v) { return uint32_t(std::lround(Sat(v) * 255)); };
+    return q(c[0]) | q(c[1]) << 8 | q(c[2]) << 16 | q(c[3]) << 24;
+}
+inline Vec Load(Stored s, bool float_r) {
+    if (float_r) return V(AsFloat(s), 0, 0, 0);
+    return V((s & 255) / 255.f, (s >> 8 & 255) / 255.f, (s >> 16 & 255) / 255.f, (s >> 24) / 255.f);
+}
+inline Stored StoreFloat(float v) {
+    uint32_t b;
+    std::memcpy(&b, &v, 4);
+    return b;
+}
+#else
+using Stored = Vec;
+inline Stored Store(const Vec& c) { return c; }
+inline Vec Load(const Stored& s, bool) { return s; }
+inline Stored StoreFloat(float v) { return V(v, 0, 0, 0); }
+#endif
 
 struct Image {
     uint32_t w = 1, h = 1, faces = 1;
     bool depth16 = false;
-    std::vector<Vec> texels[6];
+    bool float_r = false;  // R32F texels
+    std::vector<Stored> texels[6];
     uint32_t lo = 0, hi = 0;  // guest bytes it was read from
 };
 std::map<uint64_t, std::shared_ptr<Image>> g_images;
 
 // DXT1/3/5 blocks
-void DecodeBlocks(const TextureDesc& d, Host host, const std::vector<uint8_t>& in, std::vector<Vec>& out) {
+void DecodeBlocks(const TextureDesc& d, Host host, const std::vector<uint8_t>& in, std::vector<Stored>& out) {
     uint32_t bw = std::max(1u, (d.width + 3) / 4), bh = std::max(1u, (d.height + 3) / 4);
     uint32_t block = host == Host::BC1 ? 8 : 16;
-    out.assign(size_t(d.width) * d.height, Vec{});
+    out.assign(size_t(d.width) * d.height, Store(Vec{}));
     for (uint32_t by = 0; by < bh; by++)
         for (uint32_t bx = 0; bx < bw; bx++) {
             const uint8_t* b = &in[(size_t(by) * bw + bx) * block];
@@ -200,7 +214,7 @@ void DecodeBlocks(const TextureDesc& d, Host host, const std::vector<uint8_t>& i
                 if (x >= d.width || y >= d.height) continue;
                 Vec c = pal[(sel >> (2 * i)) & 3];
                 if (host != Host::BC1) c[3] = alpha[i];
-                out[size_t(y) * d.width + x] = c;
+                out[size_t(y) * d.width + x] = Store(c);
             }
         }
 }
@@ -236,24 +250,25 @@ std::shared_ptr<Image> FindImage(uint32_t header, uint32_t palette_header) {
         std::vector<uint8_t> raw;
         uint32_t pitch;
         DecodeLevel(d, 0, f, guest, palette ? colours : nullptr, raw, pitch);
-        std::vector<Vec>& out = img->texels[f];
+        std::vector<Stored>& out = img->texels[f];
         if (fi.compressed) {
             DecodeBlocks(d, fi.host, raw, out);
             continue;
         }
         out.resize(size_t(d.width) * d.height);
         if (fi.host == Host::R32F) {
+            img->float_r = true;
             for (size_t i = 0; i < out.size(); i++) {
                 float v;
                 std::memcpy(&v, &raw[i * 4], 4);
-                out[i] = V(v, 0, 0, 0);
+                out[i] = StoreFloat(v);
             }
             continue;
         }
         for (uint32_t y = 0; y < d.height; y++)
             for (uint32_t x = 0; x < d.width; x++) {
                 const uint8_t* p = &raw[size_t(y) * pitch + x * 4];
-                out[size_t(y) * d.width + x] = V(p[2] / 255.f, p[1] / 255.f, p[0] / 255.f, p[3] / 255.f);
+                out[size_t(y) * d.width + x] = Store(V(p[2] / 255.f, p[1] / 255.f, p[0] / 255.f, p[3] / 255.f));
             }
     }
     g_images[key] = img;
@@ -294,7 +309,7 @@ struct Unit {
         x = Address(x, int(img->w), address_u, outside);
         y = Address(y, int(img->h), address_v, outside);
         if (outside) return border;
-        return img->texels[face][size_t(y) * img->w + x];
+        return Load(img->texels[face][size_t(y) * img->w + x], img->float_r);
     }
     // point when both filters are, else bilinear at texel centres
     Vec Sample(int face, float u, float v) const {
@@ -1068,9 +1083,8 @@ void Clear(const State& s, uint32_t count, const uint8_t* rects, uint32_t flags,
         std::vector<std::array<int, 4>> area;
         if (count && rects) {
             for (uint32_t i = 0; i < count; i++) {
-                int32_t r[4];
-                std::memcpy(r, rects + i * 16, 16);
-                area.push_back({r[0], r[1], r[2], r[3]});
+                const uint8_t* r = rects + i * 16;
+                area.push_back({x86_ld_le<int32_t>(r), x86_ld_le<int32_t>(r + 4), x86_ld_le<int32_t>(r + 8), x86_ld_le<int32_t>(r + 12)});
             }
         } else {
             int x = int(s.viewport.x), y = int(s.viewport.y);

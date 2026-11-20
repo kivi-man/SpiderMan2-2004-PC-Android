@@ -5,6 +5,7 @@
 #include <limits>
 #include <type_traits>
 
+#include "core/le.h"
 #include "x86_context.h"
 
 typedef uint16_t __attribute__((aligned(1), may_alias)) x86_u16u;
@@ -27,7 +28,70 @@ extern "C" uintptr_t x86_seg_rel[16];
 #define X86_HOST(a) (base + (uint32_t)(a))
 #endif
 #define X86_MEM8(a) (*(uint8_t*)X86_HOST(a))
-#if defined(__GNUC__) && !defined(__clang__)
+
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+// Big-endian host (PowerPC): guest memory stays little-endian as on the console. Each access goes through a
+// reference that swaps the bytes on the way in and out (lwbrx/stwbrx on PowerPC).
+template <typename T>
+struct x86_le {
+    uint8_t* p;
+    operator T() const { return x86_ld_le<T>(p); }
+    const x86_le& operator=(T v) const {
+        x86_st_le<T>(p, v);
+        return *this;
+    }
+    const x86_le& operator=(const x86_le& o) const { return *this = T(o); }
+    template <typename U> const x86_le& operator+=(U v) const { return *this = T(T(*this) + v); }
+    template <typename U> const x86_le& operator-=(U v) const { return *this = T(T(*this) - v); }
+    template <typename U> const x86_le& operator*=(U v) const { return *this = T(T(*this) * v); }
+    template <typename U> const x86_le& operator/=(U v) const { return *this = T(T(*this) / v); }
+    template <typename U> const x86_le& operator|=(U v) const { return *this = T(T(*this) | v); }
+    template <typename U> const x86_le& operator&=(U v) const { return *this = T(T(*this) & v); }
+    template <typename U> const x86_le& operator^=(U v) const { return *this = T(T(*this) ^ v); }
+};
+// a 16 byte SSE value: four little-endian 32 bit lanes
+template <>
+struct x86_le<X86Xmm> {
+    uint8_t* p;
+    operator X86Xmm() const {
+        X86Xmm v;
+        for (int i = 0; i < 4; i++) v.u[i] = x86_ld_le<uint32_t>(p + 4 * i);
+        return v;
+    }
+    const x86_le& operator=(const X86Xmm& v) const {
+        for (int i = 0; i < 4; i++) x86_st_le<uint32_t>(p + 4 * i, v.u[i]);
+        return *this;
+    }
+};
+// X86_PTR: a byte pointer stays one, anything wider points at a little-endian value
+template <typename T>
+struct x86_le_ptr {
+    uint8_t* p;
+    x86_le<T> operator*() const { return {p}; }
+};
+template <typename T>
+struct x86_ptr_sel { using type = x86_le_ptr<T>; static type make(uint8_t* p) { return {p}; } };
+template <>
+struct x86_ptr_sel<uint8_t> { using type = uint8_t*; static type make(uint8_t* p) { return p; } };
+#define X86_MEM16(a) (x86_le<uint16_t>{(uint8_t*)X86_HOST(a)})
+#define X86_MEM32(a) (x86_le<uint32_t>{(uint8_t*)X86_HOST(a)})
+#define X86_MEM64(a) (x86_le<uint64_t>{(uint8_t*)X86_HOST(a)})
+#define X86_MEMF32(a) (x86_le<float>{(uint8_t*)X86_HOST(a)})
+#define X86_MEMF64(a) (x86_le<double>{(uint8_t*)X86_HOST(a)})
+#define X86_PTR(T, a) (x86_ptr_sel<T>::make((uint8_t*)X86_HOST(a)))
+// the generated code's locked instructions on a guest dword
+inline uint8_t x86_atomic_exchange_n(uint8_t* p, uint8_t v, int order) { return __atomic_exchange_n(p, v, order); }
+inline uint32_t x86_atomic_exchange_n(x86_le_ptr<uint32_t> p, uint32_t v, int order) {
+    return x86_bswap(__atomic_exchange_n((uint32_t*)p.p, x86_bswap(v), order));
+}
+inline bool x86_atomic_compare_exchange_n(x86_le_ptr<uint32_t> p, uint32_t* expected, uint32_t desired, bool weak,
+                                          int success, int failure) {
+    uint32_t e = x86_bswap(*expected);
+    bool ok = __atomic_compare_exchange_n((uint32_t*)p.p, &e, x86_bswap(desired), weak, success, failure);
+    *expected = x86_bswap(e);
+    return ok;
+}
+#elif defined(__GNUC__) && !defined(__clang__)
 // GCC (16, AArch64) fails with an internal error when a byte aligned typedef's value is a call argument; a packed
 // struct's field is the same unaligned load without that
 struct __attribute__((packed, may_alias)) x86_p16 { uint16_t v; };
@@ -47,7 +111,9 @@ struct __attribute__((packed, may_alias)) x86_pf64 { double v; };
 #define X86_MEMF32(a) (*(x86_f32u*)X86_HOST(a))
 #define X86_MEMF64(a) (*(x86_f64u*)X86_HOST(a))
 #endif
+#if !(defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN)
 #define X86_PTR(T, a) ((T*)X86_HOST(a))
+#endif
 
 #define X86_FUNC(name) extern "C" void name(X86Context& __restrict ctx, uint8_t* __restrict base)
 #define X86_EXTERN_FUNC(name) extern "C" void name(X86Context& __restrict ctx, uint8_t* __restrict base)
@@ -140,8 +206,13 @@ inline int64_t x87_to_i64(X86Context& ctx, double v) {
 inline double x87_load80(const uint8_t* p) {
     uint64_t mant;
     uint16_t se;
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+    mant = x86_ld_le<uint64_t>(p);
+    se = x86_ld_le<uint16_t>(p + 8);
+#else
     std::memcpy(&mant, p, 8);
     std::memcpy(&se, p + 8, 2);
+#endif
     int sign = se >> 15;
     int exp = se & 0x7FFF;
     double v;
@@ -167,8 +238,13 @@ inline void x87_store80(uint8_t* p, double v) {
         mant = uint64_t(std::ldexp(m, 64));
         se |= uint16_t(e - 1 + 16383);
     }
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+    x86_st_le<uint64_t>(p, mant);
+    x86_st_le<uint16_t>(p + 8, se);
+#else
     std::memcpy(p, &mant, 8);
     std::memcpy(p + 8, &se, 2);
+#endif
 }
 
 inline uint32_t x87_examine(X86Context& ctx) {
@@ -224,6 +300,14 @@ static_assert(sat<int16_t>(-300) == -300 && sat<int16_t>(40000) == 32767 && sat<
 template <typename T, typename F>
 inline uint64_t mmx_map2(uint64_t a, uint64_t b, F f) {
     constexpr int n = 8 / sizeof(T);
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+    // lanes by value, lane 0 the low bits
+    using U = std::make_unsigned_t<T>;
+    constexpr int bits = 8 * sizeof(T);
+    uint64_t out = 0;
+    for (int i = 0; i < n; i++) out |= uint64_t(U(T(f(T(a >> (i * bits)), T(b >> (i * bits)))))) << (i * bits);
+    return out;
+#else
     T x[n], y[n], r[n];
     std::memcpy(x, &a, 8);
     std::memcpy(y, &b, 8);
@@ -231,6 +315,7 @@ inline uint64_t mmx_map2(uint64_t a, uint64_t b, F f) {
     uint64_t out;
     std::memcpy(&out, r, 8);
     return out;
+#endif
 }
 
 // rep movs: element by element semantics, fast path when the ranges cannot interfere
@@ -266,8 +351,40 @@ inline void x86_rep_stos(X86Context& ctx, uint8_t* base, uint32_t w) {
     int32_t d = ctx.df ? -int32_t(w) : int32_t(w);
     uint32_t v = ctx.eax;
     for (; n; n--) {
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+        for (uint32_t k = 0; k < w; k++) X86_HOST(ctx.edi)[k] = uint8_t(v >> (8 * k));
+#else
         std::memcpy(X86_HOST(ctx.edi), &v, w);
+#endif
         ctx.edi += d;
     }
     ctx.ecx = 0;
 }
+
+#if defined(XBE_BIG_ENDIAN) && XBE_BIG_ENDIAN
+#if defined(XBE_GENERATED_TU) && XBE_GENERATED_TU
+// Only in the recompiled code, which includes nothing after this header: its locked instructions go through the
+// helpers above, and its MMX lane splitting (memcpy between a 64 bit register and an array of lanes) takes the lanes
+// by value, lane 0 the low bits, as on x86.
+#define __atomic_exchange_n(p, v, o) x86_atomic_exchange_n(p, v, o)
+#define __atomic_compare_exchange_n(p, e, d, w, s, f) x86_atomic_compare_exchange_n(p, e, d, w, s, f)
+template <typename D, typename S>
+inline void* x86_be_memcpy(D* d, const S* s, size_t n) {
+    if constexpr (std::is_same_v<std::remove_cv_t<D>, uint64_t> && !std::is_same_v<std::remove_cv_t<S>, uint64_t>) {
+        using US = std::make_unsigned_t<S>;
+        uint64_t v = 0;
+        for (size_t i = 0; i < n / sizeof(S); i++) v |= uint64_t(US(s[i])) << (i * 8 * sizeof(S));
+        *d = v;
+    } else if constexpr (std::is_same_v<std::remove_cv_t<S>, uint64_t> && !std::is_same_v<std::remove_cv_t<D>, uint64_t>) {
+        for (size_t i = 0; i < n / sizeof(D); i++) d[i] = D(*s >> (i * 8 * sizeof(D)));
+    } else {
+        ::memcpy((void*)d, (const void*)s, n);
+    }
+    return d;
+}
+namespace std {
+using ::x86_be_memcpy;
+}
+#define memcpy x86_be_memcpy
+#endif
+#endif

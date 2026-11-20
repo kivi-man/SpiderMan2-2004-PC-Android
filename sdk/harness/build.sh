@@ -30,7 +30,7 @@ GEN_OPT=${GEN_OPT:--O1}
 export CXX BASE RT GEN GEN_OBJ GEN_OPT
 ls "$GEN"/x86_recomp.*.cpp "$GEN"/x86_func_mapping.cpp | xargs -P "$JOBS" -I{} sh -c '
     o="$GEN_OBJ/$(basename {} .cpp).o"; [ "$o" -nt {} ] && exit 0
-    $CXX $BASE $GEN_OPT -g0 -w -I"$RT" -I"$GEN" -c {} -o "$o.tmp" && mv "$o.tmp" "$o"'
+    $CXX $BASE $GEN_OPT -g0 -w -DXBE_GENERATED_TU=1 -I"$RT" -I"$GEN" -c {} -o "$o.tmp" && mv "$o.tmp" "$o"'
 
 others=$(ls "$GEN/.." | grep -vx "$(basename "$GEN")" | paste -sd'|' -)
 SRC=$(ls "$RT"/*/*.cpp | grep -Ev "/runtime/app/|/core/input.cpp|/gpu/d3d12.cpp|/audio/xaudio2.cpp")

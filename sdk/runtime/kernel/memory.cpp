@@ -8,7 +8,12 @@
 
 #include "core/log.h"
 
-#if defined(XBE_SEGMENTED) && XBE_SEGMENTED
+#if defined(XBE_PS3)
+#include <set>
+
+#include <ppu-lv2.h>
+#include <sys/memory.h>
+#elif defined(XBE_SEGMENTED) && XBE_SEGMENTED
 #include <cstdlib>
 #elif defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
@@ -45,8 +50,65 @@ static bool InPhysical(uint32_t va) {
            (va >= kWriteCombineBase && va < kWriteCombineBase + kPhysicalSize);
 }
 
+#if defined(XBE_PS3)
+// The PS3 (256 MB for everything) cannot hold the segmented layout's 1 GB block. Its slices are lv2 address areas
+// instead, backed in 1 MB pages as the title commits them: guest 0x00000000-0x1FFFFFFF in a 512 MB area, physical
+// memory (both views) in a 256 MB area backed as contiguous memory is allocated, the system pool and the stacks
+// in another 256 MB area, and every other slice in an area with nothing behind it, so a stray access faults rather
+// than reaching the program's own memory (which lv2 loads at the bottom of the address space).
+namespace {
+constexpr uint64_t kPs3Page = 1u << 20;
+std::set<uintptr_t> g_mapped;  // host pages backed
+
+int32_t AllocShared(uint64_t size, uint64_t flags, uint32_t* id) {
+    lv2syscall4(332, 0xFFFF000000000000ull, size, flags, uint64_t(uintptr_t(id)));  // sys_mmapper_allocate_shared_memory
+    return_to_user_prog(int32_t);
+}
+int32_t MapShared(uint64_t addr, uint32_t id, uint64_t flags) {
+    lv2syscall3(334, addr, id, flags);  // sys_mmapper_map_shared_memory
+    return_to_user_prog(int32_t);
+}
+uintptr_t Area(uint64_t size) {
+    sys_mem_addr_t at = 0;
+    int32_t rc = sysMMapperAllocateAddress(size, SYS_MEMORY_PAGE_SIZE_1M, size, &at);
+    if (rc) LOGE("memory: no %u MB of address space (%08X)", uint32_t(size >> 20), uint32_t(rc));
+    return rc ? 0 : uintptr_t(at);
+}
+// backs the host bytes [from, to)
+bool Back(uintptr_t from, uintptr_t to) {
+    for (uintptr_t p = from & ~(kPs3Page - 1); p < to; p += kPs3Page) {
+        if (g_mapped.count(p)) continue;
+        uint32_t id = 0;
+        int32_t rc = AllocShared(kPs3Page, SYS_MEMORY_PAGE_SIZE_1M, &id);
+        if (!rc) rc = MapShared(p, id, SYS_MEMORY_PROT_READ_WRITE);
+        if (rc) {
+            LOGE("memory: could not back %08X (%08X), %zu MB backed", uint32_t(p), uint32_t(rc), g_mapped.size());
+            return false;
+        }
+        g_mapped.insert(p);
+    }
+    return true;
+}
+}  // namespace
+
+size_t BackedBytes() { return g_mapped.size() * kPs3Page; }
+#endif
+
 bool Init() {
-#if defined(XBE_SEGMENTED) && XBE_SEGMENTED
+#if defined(XBE_PS3)
+    uintptr_t low = Area(0x20000000), phys = Area(0x10000000), sys = Area(0x10000000), none = Area(0x10000000);
+    if (!low || !phys || !sys || !none) return false;
+    for (uint32_t i = 0; i < 16; i++) x86_seg[i] = none - (uintptr_t(i) << 28);
+    x86_seg[0] = x86_seg[1] = low;
+    x86_seg[kContiguousBase >> 28] = phys - kContiguousBase;
+    x86_seg[kWriteCombineBase >> 28] = phys - kWriteCombineBase;
+    x86_seg[kSystemBase >> 28] = sys - kSystemBase;
+    x86_seg[kStackBase >> 28] = sys + kSystemSize - kStackBase;
+    g_base = reinterpret_cast<uint8_t*>(low);
+    for (uint32_t i = 0; i < 16; i++) x86_seg_rel[i] = x86_seg[i] - low;
+    LOGI("memory: lv2 areas, user %08X, physical %08X, system and stacks %08X", uint32_t(low), uint32_t(phys), uint32_t(sys));
+    return true;
+#elif defined(XBE_SEGMENTED) && XBE_SEGMENTED
     // One host block, sliced: guest 0x00000000-0x1FFFFFFF (the image and user memory, kUserHigh), physical memory
     // at 0x80000000 and its write combined view at 0xF0000000 (the same bytes, 256 MB so stray register reads stay
     // inside), the system pool at kSystemBase and the stacks at kStackBase. Any other slice points at the bottom
@@ -119,10 +181,19 @@ bool Init() {
 static std::vector<uint8_t> g_committed(0x100000, 0);
 
 bool Commit(uint32_t va, uint32_t size) {
+#if defined(XBE_PS3)
+    if (size && InPhysical(va)) {
+        std::lock_guard<std::recursive_mutex> lock(g_lock);
+        return Back(uintptr_t(Host(va)), uintptr_t(Host(va)) + size);
+    }
+#endif
     if (!size || InPhysical(va)) return true;
     uint32_t first = va & ~(kPage - 1);
     uint64_t end = (uint64_t(va) + size + kPage - 1) & ~uint64_t(kPage - 1);
     std::lock_guard<std::recursive_mutex> lock(g_lock);
+#if defined(XBE_PS3)
+    if (!Back(uintptr_t(Host(first)), uintptr_t(Host(uint32_t(end - 1))) + 1)) return false;
+#endif
 #if defined(XBE_SEGMENTED) && XBE_SEGMENTED
     // the block is always there; pages committed afresh read as zero, as the kernel gives them
     for (uint64_t p = first; p < end; p += kPage)

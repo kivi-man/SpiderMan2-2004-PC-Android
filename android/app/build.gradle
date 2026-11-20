@@ -1,0 +1,53 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The game's recompiled code and the runtime, built by android/CMakeLists.txt into libmain.so (SDL3 inside).
+// Needs generated/game from your own default.xbe (the Windows or Linux build makes it) and assets/default.xbe.
+android {
+    namespace = "com.spiderman2.xbox"
+    compileSdkVersion 35
+    ndkVersion = "28.2.13676358"
+    defaultConfig {
+        applicationId "com.spiderman2.xbox"
+        minSdkVersion 26
+        targetSdkVersion 35
+        versionCode 1
+        versionName "0.1.0"
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_PLATFORM=android-26", "-DANDROID_STL=c++_static"
+                // phones are arm64; x86_64 is for the emulator
+                abiFilters(*(project.findProperty('ABIS') ?: 'arm64-v8a,x86_64').split(','))
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            // the game is unplayable unoptimized
+            externalNativeBuild { cmake { arguments "-DCMAKE_BUILD_TYPE=Release" } }
+            jniDebuggable false
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.debug
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path '../CMakeLists.txt'
+            version '3.22.1'
+        }
+    }
+    packagingOptions {
+        jniLibs { useLegacyPackaging = false }
+    }
+    lint {
+        abortOnError = false
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+}

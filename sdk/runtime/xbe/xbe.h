@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 
+#include "core/le.h"
+
 namespace xbe {
 
 // the header XORs the entry point and kernel thunk address with these
@@ -47,9 +49,7 @@ struct Image {
     Tls tls;
 
     uint32_t U32(uint32_t off) const {
-        uint32_t v;
-        std::memcpy(&v, file.data() + off, 4);
-        return v;
+        return x86_ld_le<uint32_t>(file.data() + off);
     }
 
     // file offset for a virtual address, -1 if unmapped or in the zero filled tail
@@ -130,7 +130,11 @@ struct Image {
             char n[9] = {};
             std::memcpy(n, file.data() + o, 8);
             l.name = n;
-            std::memcpy(&l.major, file.data() + o + 8, 8);  // major, minor, build and flags, four uint16 in order
+            // major, minor, build and flags, four uint16 in order
+            l.major = x86_ld_le<uint16_t>(file.data() + o + 8);
+            l.minor = x86_ld_le<uint16_t>(file.data() + o + 10);
+            l.build = x86_ld_le<uint16_t>(file.data() + o + 12);
+            l.flags = x86_ld_le<uint16_t>(file.data() + o + 14);
             libraries.push_back(l);
         }
         if (cert - base + 12 <= file.size()) title_id = U32(cert - base + 8);  // certificate +8 is the title id

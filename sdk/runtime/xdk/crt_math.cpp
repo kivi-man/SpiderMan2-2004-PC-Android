@@ -39,9 +39,7 @@ CRT_MATH(crt_log10, std::log10)
 // x and y above the return address, y in st0
 X86_FUNC(GUEST(crt_pow)) {
     // copied out first: GCC 16 for AArch64 fails (internal error) passing the byte aligned double type as an argument
-    double x, y;
-    std::memcpy(&x, X86_HOST(ctx.esp + 4), 8);
-    std::memcpy(&y, X86_HOST(ctx.esp + 12), 8);
+    double x = x86_ld_le<double>(X86_HOST(ctx.esp + 4)), y = x86_ld_le<double>(X86_HOST(ctx.esp + 12));
     X87_ST(0) = std::pow(x, y);
     ctx.esp += 4;
 }

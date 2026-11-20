@@ -207,9 +207,7 @@ float Sample(Voice& v, uint32_t data, uint32_t f, int c) {
         return v.decoded[(f % 64) * v.channels + c] / 32768.0f;
     }
     if (v.bits == 8) return (p[f * v.align + c] - 128) / 128.0f;
-    int16_t s;
-    std::memcpy(&s, p + f * v.align + c * 2, 2);
-    return s / 32768.0f;
+    return x86_ld_le<int16_t>(p + f * v.align + c * 2) / 32768.0f;
 }
 
 void Complete(Voice& v, Packet& pk, uint32_t status) {
@@ -561,7 +559,7 @@ HLE_STDCALL(IDirectSound_SynchPlayback, 1) {
 // the descriptor keeps the image's effect list so the title finds its indices, every segment points at zeroed memory
 static uint32_t EffectsDesc(const std::vector<uint8_t>& img, const char* name) {
     XDK_REQUIRE("dsound", XDK_KEY(EffectsImage_Skip0), XDK_KEY(EffectsImage_Skip1), XDK_KEY(EffectsImage_Desc));
-    auto u32 = [&](size_t o) { uint32_t v = 0; if (o + 4 <= img.size()) std::memcpy(&v, &img[o], 4); return v; };
+    auto u32 = [&](size_t o) { uint32_t v = 0; if (o + 4 <= img.size()) v = x86_ld_le<uint32_t>(&img[o]); return v; };
     size_t t = XDK_EffectsImage_Desc + size_t(u32(XDK_EffectsImage_Skip0) + u32(XDK_EffectsImage_Skip1)) * 4;
     uint32_t count = std::min<uint32_t>(u32(t), 64);
     LOGI("dsound: effects image %s, %u effects", name, count);

@@ -175,6 +175,7 @@ Socket Find(uint32_t sock) {
 sockaddr_in GuestAddr(uint32_t va) {
     sockaddr_in a{};
     std::memcpy(&a, HostPtr(va), sizeof(a));
+    a.sin_family = decltype(a.sin_family)(kernel::R16(va));  // the console's own order, the port and address in network order
     return a;
 }
 
@@ -226,7 +227,10 @@ int Recv(uint32_t sock, SOCKET s, const std::vector<Span>& spans, uint32_t from,
         g_public.push_back(peer);
         if (g_public.size() > kMaxPublic) g_public.erase(g_public.begin());
     }
-    if (from) std::memcpy(HostPtr(from), &src, sizeof(src));
+    if (from) {
+        std::memcpy(HostPtr(from), &src, sizeof(src));
+        kernel::W16(from, uint16_t(src.sin_family));
+    }
     if (fromlen) W32(fromlen, sizeof(src));
     return done;
 }
@@ -538,6 +542,7 @@ HLE_STDCALL(getsockname, 3) {
     int len = sizeof(me);
     if (::getsockname(k.s, reinterpret_cast<sockaddr*>(&me), &len) != 0) return Fail(HostError());
     std::memcpy(HostPtr(a[1]), &me, sizeof(me));
+    kernel::W16(a[1], uint16_t(me.sin_family));
     W32(a[2], sizeof(me));
     return 0;
 }
@@ -584,7 +589,10 @@ HLE_STDCALL(accept, 3) {
         int len = sizeof(from);
         SOCKET s = ::accept(k.s, reinterpret_cast<sockaddr*>(&from), &len);
         if (s != INVALID_SOCKET) {
-            if (a[1]) std::memcpy(HostPtr(a[1]), &from, sizeof(from));
+            if (a[1]) {
+                std::memcpy(HostPtr(a[1]), &from, sizeof(from));
+                kernel::W16(a[1], uint16_t(from.sin_family));
+            }
             if (a[2]) W32(a[2], sizeof(from));
             LOGI("xnet: accept %X from %s", a[0], Addr(from).c_str());
             return AddSocket(s, false);

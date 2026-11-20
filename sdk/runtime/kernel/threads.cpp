@@ -14,6 +14,8 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(XBE_PS3)
+#include <sys/thread.h>
 #else
 #include <pthread.h>
 #endif
@@ -87,6 +89,14 @@ void MarkExited(Thread& t, uint32_t code) {
 }
 
 
+}  // namespace
+
+#ifdef XBE_PS3
+uint32_t g_host_stack = 4u << 20;
+#endif
+
+namespace {
+
 // recompiled code nests host frames as deep as the guest's calls, give it room
 void Spawn(std::function<void()> fn) {
     auto* f = new std::function<void()>(std::move(fn));
@@ -98,6 +108,20 @@ void Spawn(std::function<void()> fn) {
     };
     HANDLE h = ::CreateThread(nullptr, 64u << 20, entry, f, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
     if (h) ::CloseHandle(h);
+#elif defined(XBE_PS3)
+    // a PPU thread whose stack comes out of the 256 MB the game has (g_host_stack, the platform may change it)
+    sys_ppu_thread_t th;
+    int rc = sysThreadCreate(&th, [](void* p) {
+        {
+            std::unique_ptr<std::function<void()>> g(static_cast<std::function<void()>*>(p));
+            (*g)();
+        }
+        sysThreadExit(0);
+    }, f, 1000, g_host_stack, 0, const_cast<char*>("guest"));
+    if (rc) {
+        LOGE("threads: a host thread could not start (%08X)", uint32_t(rc));
+        delete f;
+    }
 #else
     pthread_attr_t attr;
     pthread_attr_init(&attr);
@@ -135,6 +159,8 @@ void NameHostThread(const char* name) {
     using Fn = HRESULT(WINAPI*)(HANDLE, PCWSTR);
     static Fn set = reinterpret_cast<Fn>(reinterpret_cast<void*>(GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetThreadDescription")));
     if (set) set(GetCurrentThread(), w);
+#elif defined(XBE_PS3)
+    (void)name;  // lv2 names a thread when it is made
 #elif defined(__SWITCH__)
     // libnx threads are not named through pthreads. The port's own busy threads get a preferred core of their own:
     // the renderer core 1, the sound, the port's main and watch threads core 2, the game's threads the process's own
@@ -244,6 +270,8 @@ void ExitThread(uint32_t code) {
     t_current.reset();
 #ifdef _WIN32
     ::ExitThread(code);
+#elif defined(XBE_PS3)
+    sysThreadExit(0);
 #else
     pthread_exit(nullptr);
 #endif
