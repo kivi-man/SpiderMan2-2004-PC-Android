@@ -1,173 +1,178 @@
-# Spider-Man 2 (Xbox) → PS3: araçlar ve plan
+# Spider-Man 2 (Xbox) → PS3: tools and plan
 
-Hazırlanma tarihi: 2026-11-18. Hedef: yalnızca açık kaynak araçlarla, CFW/HEN'li bir PS3'te ve RPCS3 emülatöründe
-çalışan bir homebrew. Bu bir deneme planı: her aşamanın sonunda devam edip etmeme kararı veriliyor.
+**English** · [Türkçe](PS3_PLAN.tr.md)
+
+Written 2026-11-18. Goal: a homebrew that runs on a PS3 with CFW or HEN and in the RPCS3 emulator, made with open
+source tools only. It is a trial plan: each stage ends with a decision to go on or stop.
 
 > [!NOTE]
-> Araçların durumu GitHub API'sinden doğrudan okundu. RPCS3'ün PSL1GHT homebrew desteği gibi kontrol edilemeyen
-> birkaç nokta "doğrulanacak" diye işaretli, çünkü web arama aracı o sırada çalışmıyordu.
+> The tools' state was read straight from the GitHub API. A few points that could not be checked then, such as
+> RPCS3's support for PSL1GHT homebrew, were marked "to verify" because the web search tool was not working; section 6
+> has what was found since.
 
-## 1. Seçilen araçlar
+## 1. Chosen tools
 
-| Ne için | Araç | Durum (kontrol edildi) | Neden |
+| For | Tool | State (checked) | Why |
 |---|---|---|---|
-| Derleyici | [ps3dev/ps3toolchain](https://github.com/ps3dev/ps3toolchain) | **GCC 13.2.0**, binutils 2.42, newlib 1.20.0. Son güncelleme 2026-10. | C++20 destekliyor (SDK bunu istiyor). PPU ve SPU derleyicileri. Linux/WSL'de kuruluyor. |
-| SDK | [ps3dev/PSL1GHT](https://github.com/ps3dev/PSL1GHT) | Son güncelleme 2026-11. `rsx/` (GPU), `sys/` (thread, mutex, cond, sem, file, memory), `audio/`, `io/` (pad), örnek `samples/graphics/rsxtest*`. | Tek aktif açık kaynak PS3 SDK'sı. |
-| GPU / shader | [gzorin/RSXGL](https://github.com/gzorin/RSXGL) | OpenGL 3.1 core'un bir alt kümesi. **Mesa'nın GLSL 1.30 derleyicisiyle shader'ları çalışma anında RSX koduna çeviriyor.** 2026-04'te RetroArch için güncellenmiş, ps3dev SDK'sını destekliyor. | Projenin en zor parçası olan "shader'ı RSX koduna çevir" işini hazır çözüyor. |
-| Shader (yedek yol) | Mesa nouveau **nv30/nvfx** kodu (RSXGL'in içinde `extsrc/mesa`) | MIT lisans | RSXGL yetmezse kendi renderer'ımız bu çeviriciyi doğrudan kullanır. |
-| Test (konsolsuz) | **RPCS3** | Doğrulanacak: PSL1GHT `.self`/`.pkg` çalıştırma | Geliştirmenin çoğu PS3 olmadan yapılır. |
-| Big-endian testi | **qemu-ppc64** + `powerpc64-linux-gnu-g++` (WSL Ubuntu) | Standart Ubuntu paketleri | Grafik ve PS3'e hiç girmeden byte sırası işini kanıtlar. Proje ARM için aynı yöntemi `qemu-aarch64` ile kullanıyor. |
-| Gerçek konsol | CFW veya PS3HEN, `ps3load` (PSL1GHT `tools/`) | — | Ağ üzerinden hızlı yükleme. |
+| Compiler | [ps3dev/ps3toolchain](https://github.com/ps3dev/ps3toolchain) | **GCC 13.2.0**, binutils 2.42, newlib 1.20.0. Last updated 2026-10. | Supports C++20 (the SDK needs it). PPU and SPU compilers. Builds on Linux/WSL. |
+| SDK | [ps3dev/PSL1GHT](https://github.com/ps3dev/PSL1GHT) | Last updated 2026-11. `rsx/` (GPU), `sys/` (thread, mutex, cond, sem, file, memory), `audio/`, `io/` (pad), samples `samples/graphics/rsxtest*`. | The only active open source PS3 SDK. |
+| GPU / shaders | [gzorin/RSXGL](https://github.com/gzorin/RSXGL) | A subset of OpenGL 3.1 core. **Compiles shaders to RSX code at run time with Mesa's GLSL 1.30 compiler.** Updated 2026-04 for RetroArch, supports the ps3dev SDK. | Solves the hardest part of the project, turning shaders into RSX code. |
+| Shaders (fallback) | Mesa nouveau **nv30/nvfx** code (inside RSXGL, `extsrc/mesa`) | MIT | If RSXGL isn't enough, our own renderer uses this compiler directly. |
+| Testing without a console | **RPCS3** | To verify: running PSL1GHT `.self`/`.pkg` | Most of the work happens without a PS3. |
+| Big-endian test | **qemu-ppc64** + `powerpc64-linux-gnu-g++` (WSL Ubuntu) | Standard Ubuntu packages | Proves the byte order work without any graphics or PS3. The project does the same for ARM with `qemu-aarch64`. |
+| Real console | CFW or PS3HEN, `ps3load` (PSL1GHT `tools/`) | — | Fast loading over the network. |
 
-**Kapalı kaynak tek parça:** PSL1GHT'ın `cgcomp` aracı NVIDIA'nın ücretsiz ama kapalı Cg Toolkit'ini istiyor.
-RSXGL bunu yalnızca kendi örnekleri ve isteğe bağlı çevrimdışı derleme için kullanıyor. Çalışma anındaki GLSL
-yolu Mesa ile tamamen açık. Plan Cg'ye bağımlı değil.
+**The one closed source piece:** PSL1GHT's `cgcomp` needs NVIDIA's free but closed Cg Toolkit. RSXGL uses it only for
+its own samples and optional offline compiling. The run-time GLSL path is fully open, through Mesa. The plan doesn't
+depend on Cg.
 
-> PSL1GHT'ın bir [AI kullanım politikası](https://github.com/ps3dev/PSL1GHT/blob/master/AI_POLICY.md) var. Biz
-> SDK'yı sadece kullanıyoruz, bu yüzden bizi etkilemiyor. Ama PSL1GHT veya RSXGL'e geri katkı (PR) yapılacaksa AI
-> kullanımı açıkça belirtilmeli ve kodu gönderen kişi her satırını anlayıp açıklayabilmeli.
+> PSL1GHT has an [AI usage policy](https://github.com/ps3dev/PSL1GHT/blob/master/AI_POLICY.md). We only use the SDK,
+> so it doesn't affect us. But any contribution back to PSL1GHT or RSXGL must disclose AI use, and whoever sends it
+> must understand and be able to explain every line.
 
-## 2. Koddan çıkan kritik bulgular
+## 2. What the code showed
 
-1. **Üretilmiş oyun kodu belleğe sadece makrolarla erişiyor.** Örnek dosya `generated/game/x86_recomp.10.cpp`:
-   `X86_MEM32` 4.380, `X86_MEMF32` 453, `X86_MEM8` 375, `X86_MEMF64` 14, `X86_MEM16` 5 kullanım. Doğrudan
-   `memcpy` veya işaretçi erişimi yok. Yani **2,9 milyon satırlık üretilmiş kodun byte çevirmesi tek dosyada**
-   (`sdk/runtime/cpu/x86_ops.h`) çözülebilir: makrolar big-endian'da okurken ve yazarken byte çeviren bir "referans"
-   tipine dönüşür. PowerPC'nin `lwbrx`/`stwbrx` komutları bunu ek maliyetsiz yapıyor.
-2. **Asıl denetim işi runtime'da** (`sdk/runtime`, ~16.300 satır): kernel yapıları, D3D push buffer, vertex, texture
-   ve ses verisini okuyan elle yazılmış kod. Konsolun verisini little-endian sayan her satır elden geçmeli.
-3. **Runtime'ın platformdan istedikleri:** `std::thread` (7 dosya), `std::filesystem` (9 dosya), mutex/condvar
-   (20 dosya). PS3'te newlib 1.20 ve libstdc++ ile bunların çalışıp çalışmadığı **belirsiz**. Aşama 0'da ilk test
-   edilecek şey bu. Çalışmıyorsa PSL1GHT'ın `sys/thread.h` ve `sys/file.h` fonksiyonları üzerine ince bir katman yazılır.
-4. **4 GB adres alanı:** PC ve Android'deki gibi 4 GB ayırmak mümkün değil. Switch için yazılmış **segment modu**
-   (`XBE_SEGMENTED`, kullanılan yerler 1 GB'lık bloklarda) hazır; PS3'te 256 MB ana bellekle daha küçük bir düzen gerekecek.
-5. **Renderer:** `gl/gl_backend.cpp` OpenGL 4.3 kullanıyor (uniform buffer, vertex attrib binding). RSXGL ise
-   OpenGL 3.1 alt kümesi: **uniform buffer, sıkıştırılmış texture, cube texture ve framebuffer'dan kopyalama yok.**
-   Android için yazdığımız uyum katmanı (`gl/gl_api.cpp`: BGRA, S3TC'yi CPU'da açma, shader başlığını değiştirme)
-   burada da işe yarar. Ama uniform buffer'ın yerine düz uniform kullanmak ve eksik RSXGL özelliklerini eklemek gerekecek.
+1. **The generated game code reaches memory only through macros.** In the sample file
+   `generated/game/x86_recomp.10.cpp`: `X86_MEM32` 4,380 uses, `X86_MEMF32` 453, `X86_MEM8` 375, `X86_MEMF64` 14,
+   `X86_MEM16` 5, and no direct `memcpy` or pointer access. So **byte swapping for 2.9 million lines of generated code
+   fits in one file** (`sdk/runtime/cpu/x86_ops.h`): on a big-endian host the macros become a "reference" type that
+   swaps bytes on reads and writes. PowerPC's `lwbrx`/`stwbrx` do that at no extra cost.
+2. **The real audit is in the runtime** (`sdk/runtime`, ~16,300 lines): the hand-written code that reads kernel
+   structures, D3D push buffers, vertex, texture and sound data. Every line that takes the console's data as
+   little-endian has to be gone over.
+3. **What the runtime needs from the platform:** `std::thread` (7 files), `std::filesystem` (9 files), mutexes and
+   condition variables (20 files). Whether these work on the PS3 with newlib 1.20 and libstdc++ was **unknown**: the
+   first thing Stage 0 tests. If not, a thin layer over PSL1GHT's `sys/thread.h` and `sys/file.h`.
+4. **4 GB address space:** reserving 4 GB as on the PC and Android isn't possible. The Switch's **segmented mode**
+   (`XBE_SEGMENTED`, the used parts in 1 GB blocks) exists; the PS3's 256 MB of main memory needs a smaller layout.
+5. **Renderer:** `gl/gl_backend.cpp` uses OpenGL 4.3 (uniform buffers, vertex attribute binding). RSXGL is an OpenGL
+   3.1 subset: **no uniform buffers, compressed textures, cube textures or copies from the framebuffer.** The Android
+   layer (`gl/gl_api.cpp`: BGRA, S3TC decoded on the CPU, shader header rewrite) helps here too, but uniform buffers
+   have to become plain uniforms and RSXGL's missing features have to be added.
 
-## 3. Aşamalar
+## 3. Stages
 
-Her aşamanın sonunda ölçülebilir bir "bitti" kriteri var. Bir aşama başarısız olursa sonrakine geçmeye değmez.
+Each stage has a measurable "done". If a stage fails, the next isn't worth starting.
 
-### Aşama 0 — Kurulum ve ön testler (1-2 gün)
-- WSL Ubuntu'ya ps3toolchain'i kur (derleme birkaç saat sürer) ve PSL1GHT örneklerini derle.
-- RPCS3'ü kur; `rsxtest` örneğini RPCS3'te çalıştır.
-- **Kritik test:** PS3'te `std::thread`, `std::mutex`, `std::condition_variable`, `std::filesystem` ve C++20
-  kullanan küçük bir program, RPCS3'te çalışıyor mu?
-- RSXGL'i derle, bir örneğini RPCS3'te çalıştır.
-- **Bitti:** dört örnek RPCS3'te çalışıyor; libstdc++ eksikleri listelendi.
+### Stage 0 — Setup and first tests (1-2 days)
+- Install ps3toolchain in WSL Ubuntu (the build takes a few hours) and build the PSL1GHT samples.
+- Install RPCS3; run the `rsxtest` sample in it.
+- **Key test:** does a small program using C++20, `std::thread`, `std::mutex`, `std::condition_variable` and
+  `std::filesystem` run in RPCS3?
+- Build RSXGL and run one of its samples in RPCS3.
+- **Done:** the four samples run in RPCS3; libstdc++'s gaps are listed.
 
-### Aşama 1 — Big-endian (1-3 hafta) — PS3'in mümkün olup olmadığını gösteren aşama
-- `x86_ops.h`: `XBE_BIG_ENDIAN` modunda bellek makroları byte çeviren referans tipine dönüşür. Gerekirse
-  recompiler (`sdk/tools/recomp`) tarafında da küçük değişiklikler.
-- Runtime denetimi: konsol verisini okuyan her yere byte çevirme (`kernel/`, `xdk/`, `gpu/`).
-- Linux test build'ini (`sdk/harness`) `powerpc64-linux-gnu-g++` ile derleyip WSL'de `qemu-ppc64` altında
-  ekransız çalıştır. CPU renderer'ı (`reference_renderer.cpp`) kare yakalasın.
-- **Bitti:** oyun qemu-ppc64'te başlık ekranına ve şehre geliyor; yakalanan kareler PC'dekilerle aynı.
+### Stage 1 — Big-endian (1-3 weeks) — the stage that shows whether the PS3 is possible
+- `x86_ops.h`: in `XBE_BIG_ENDIAN` mode the memory macros become a byte-swapping reference type. Small changes in the
+  recompiler (`sdk/tools/recomp`) if needed.
+- Runtime audit: byte swapping wherever console data is read (`kernel/`, `xdk/`, `gpu/`).
+- Build the Linux test build (`sdk/harness`) with `powerpc64-linux-gnu-g++` and run it headless under `qemu-ppc64` in
+  WSL, with the CPU renderer (`reference_renderer.cpp`) capturing frames.
+- **Done:** the game reaches the title screen and the city under qemu-ppc64; the captured frames match the PC's.
 
-### Aşama 2 — PS3 uygulama katmanı, CPU renderer ile (1-2 hafta)
-- `ps3/` klasörü (Switch ve Android katmanlarının karşılığı): giriş noktası, oyun klasörü
-  (`/dev_hdd0/game/…` veya USB), log, kayıt, PSL1GHT ses ve pad, thread eşlemesi.
-- Segment modunun PS3 bellek düzeni.
-- Grafik için önce Switch'in yedek yolu: CPU renderer arada bir kare çizer ve ekrana basar (yavaş ama doğru).
-- **Bitti:** RPCS3'te başlık ekranı görünüyor, ses geliyor, pad çalışıyor.
+### Stage 2 — The PS3 app layer, with the CPU renderer (1-2 weeks)
+- A `ps3/` folder (the Switch and Android layers' counterpart): entry point, game folder (`/dev_hdd0/game/…` or USB),
+  logs, saves, PSL1GHT sound and pad, threads.
+- The segmented mode's PS3 memory layout.
+- For graphics first the Switch's fallback: the CPU renderer draws a frame now and then and puts it on the screen
+  (slow but right).
+- **Done:** the title screen shows in RPCS3, sound plays, the pad works.
 
-### Aşama 3 — GPU renderer (4-8 hafta)
-- **Yol A (önerilen ilk deneme): RSXGL.** `gl/` backend'ini OpenGL 3.1 / GLSL 1.30 alt kümesine uyarla
-  (uniform buffer → uniform, attrib binding → `glVertexAttribPointer`, eksik formatlar CPU'da). RSXGL'de eksik olan
-  cube texture ve framebuffer kopyalamayı RSXGL'e ekle.
-- **Yol B (A tıkanırsa):** doğrudan PSL1GHT `rsx` kütüphanesiyle ince bir renderer. Shader'lar Mesa nvfx
-  çeviricisiyle (RSXGL içindeki kod) veya NV2A mikrokodundan RSX mikrokoduna doğrudan çeviriyle.
-- Vertex ve texture verisi little-endian; RSX'e yüklerken çevirme maliyeti ölçülecek.
-- **Bitti:** RPCS3'te şehir GPU ile çiziliyor.
+### Stage 3 — GPU renderer (4-8 weeks)
+- **Path A (try first): RSXGL.** Adapt the `gl/` backend to the OpenGL 3.1 / GLSL 1.30 subset (uniform buffers →
+  uniforms, attribute binding → `glVertexAttribPointer`, missing formats on the CPU). Add cube textures and
+  framebuffer copies to RSXGL.
+- **Path B (if A gets stuck):** a thin renderer straight on PSL1GHT's `rsx` library, with shaders through Mesa's nvfx
+  compiler (the code inside RSXGL) or translated directly from NV2A microcode to RSX microcode.
+- Vertex and texture data are little-endian; measure the cost of swapping them on upload to the RSX.
+- **Done:** the city is drawn by the GPU in RPCS3.
 
-### Aşama 4 — Gerçek konsol ve performans (2-4 hafta)
-- CFW/HEN'li PS3'te `ps3load` ile test.
-- PPU sırayla çalışan (in-order) bir çekirdek: sıcak noktaları ölç. Ses karıştırma veya texture açma gibi işleri
-  SPU'lara taşımak sonraki bir iyileştirme.
-- **Bitti:** konsolda oynanabilir kare hızı (hedef 30 FPS, oyunun kendi hızı).
+### Stage 4 — Real console and performance (2-4 weeks)
+- Test on a PS3 with CFW/HEN through `ps3load`.
+- The PPU is an in-order core: measure the hot spots. Moving sound mixing or texture decoding to the SPUs comes later.
+- **Done:** a playable frame rate on the console (target 30 FPS, the game's own pace).
 
-## 4. Riskler
+## 4. Risks
 
-| Risk | Etki | Önlem |
+| Risk | Effect | Answer |
 |---|---|---|
-| libstdc++ PS3'te thread/filesystem sunmuyor | Aşama 0-2 uzar | PSL1GHT `sys/` üzerine ince bir katman |
-| RSXGL'in eksikleri beklenenden büyük | Aşama 3 uzar | Yol B |
-| PPU yavaş kalıyor | Konsolda düşük FPS | Ölç, sıcak noktaları optimize et, SPU |
-| 256 MB ana bellek | Bellek yetmezliği | Segment düzenini küçült, texture'ları RSX belleğinde tut |
-| RPCS3 ile gerçek konsol farklı davranıyor | Geç keşfedilen hatalar | Aşama 2'den itibaren arada bir gerçek konsolda test |
+| libstdc++ has no threads/filesystem on the PS3 | Stages 0-2 take longer | A thin layer over PSL1GHT `sys/` |
+| RSXGL's gaps are bigger than expected | Stage 3 takes longer | Path B |
+| The PPU is too slow | Low FPS on the console | Measure, optimise hot spots, SPUs |
+| 256 MB of main memory | Running out of memory | A smaller segment layout, textures kept in RSX memory |
+| RPCS3 and the console behave differently | Bugs found late | Test on a console now and then from Stage 2 on |
 
-## 5. İlk gün yapılacaklar
+## 5. First day
 
-1. WSL Ubuntu'yu kontrol et (proje `build-windows.ps1` ile WSL kullanıyor, kurulu olabilir).
-2. `qemu-user-static` ve `g++-powerpc64-linux-gnu` paketlerini kur. Bunlar Aşama 1 için yeterli, ps3toolchain'i beklemiyor.
-3. Arka planda ps3toolchain derlemesini başlat.
-4. Aşama 1'in ilk adımı: `x86_ops.h`'de big-endian bellek makroları ve test build'inin ppc64 derlemesi.
-5. Gün sonunda rapor: oyun qemu-ppc64'te nereye kadar geldi, hangi runtime parçaları bozuk.
+1. Check WSL Ubuntu (the project uses WSL through `build-windows.ps1`, so it may be installed).
+2. Install `qemu-user-static` and `g++-powerpc64-linux-gnu`: enough for Stage 1, without waiting for ps3toolchain.
+3. Start the ps3toolchain build in the background.
+4. Stage 1's first step: big-endian memory macros in `x86_ops.h` and a ppc64 build of the test build.
+5. Report at the end of the day: how far the game got under qemu-ppc64, which runtime parts are broken.
 
-Tahmini toplam süre: **2-4 ay**. Byte çevirmenin üretilmiş kodda tek dosyada çözülebilmesi ve RSXGL'in
-çalışma anı shader derleyicisi sayesinde ilk tahminden (4-6 ay) kısa.
+Estimated total: **2-4 months**. Shorter than the first estimate (4-6 months), because byte swapping fits in one file
+for the generated code and RSXGL has a run-time shader compiler.
 
-## 6. Durum (2026-11-18)
+## 6. Status (2026-11-18)
 
-- **Aşama 1, ilk sonuç:** `XBE_BIG_ENDIAN` modu çalışıyor. Test build'i `powerpc64-linux-gnu-g++` ile derlenip
-  `qemu-ppc64` altında oyun açılış logolarını, videoları, başlık ekranını, isim girişini, yüklemeyi ve şehri
-  (Chapter 1, çatı) x86 ile aynı çiziyor. Tarifi: [BUILDING.md](BUILDING.md), "Big-endian (PowerPC)".
-  - Üretilmiş kod değişmedi: bellek makroları byte çeviren referanslar ([`x86_ops.h`](../sdk/runtime/cpu/x86_ops.h)),
-    runtime konsol verisini [`core/le.h`](../sdk/runtime/core/le.h) ile okuyor.
-  - Henüz big-endian için elden geçmedi: `gl/` renderer, `gpu/render_thread.cpp`, `xnet` (sockaddr dışındakiler).
-- **Aşama 0, derleme kısmı:** ps3toolchain (PPU GCC 13.2.0) ve PSL1GHT kuruldu, `blitting` örneği `.self` oluyor.
-  - libstdc++'ta **thread desteği yok** (`std::thread`, `std::mutex`, `std::condition_variable`): PSL1GHT `sys/`
-    üzerine ince bir katman gerekecek.
-  - `std::filesystem` derleniyor; bağlamada sadece `symlink`, `readlink`, `fchmod`, `pathconf` eksik (boş stub yeter).
-  - `rsxtest` örneği Cg toolkit istiyor (beklendiği gibi).
-- **Aşama 0, RPCS3 testleri** (RPCS3 0.0.42, firmware 4.93):
-  - Çalışıyor: C++20, istisnalar (`try`/`catch`), atomikler, PSL1GHT thread + mutex + koşul değişkeni
-    (4 thread, 400.000 sayım doğru), `steady_clock`/`usleep`, `std::filesystem` ile klasör açma, dosya
-    yazma/okuma/boyut/listeleme/yeniden adlandırma. `blitting` örneği RPCS3'te Vulkan ile çiziyor.
-  - Çalışmıyor: `std::filesystem::remove_all` klasör silemiyor (newlib `remove()`): küçük bir katman gerekli.
-  - Bellek: en büyük `malloc` 208 MB. Adres alanında 256 MB, 512 MB ve 1 GB'lık bloklar ayrılabiliyor, 2 GB
-    ayrılamıyor. Yani düz 4 GB pencere yok, **segment modu şart**.
-  - Derleme ayarları: `-std=gnu++20` (newlib 1.20 sıkı `c++20`'de `snprintf` gibi fonksiyonları gizliyor),
-    `std::snprintf` için `namespace std { using ::snprintf; }`, newlib `printf`'i `%zu` bilmiyor.
-- **Aşama 2, ilk sonuç (aynı gün):** `ps3/` katmanı yazıldı ([ps3/README.md](../ps3/README.md)). PS3 sürümü
-  (`SpiderMan2Xbox.self`) RPCS3'te açılıyor: logolar, videolar, başlık ekranı, yeni oyun ve **şehir** (Chapter 1)
-  CPU renderer ile doğru görünüyor; 10 dakikalık koşuda çökme yok. Bellek: guest ~66 MB, heap ~60 MB.
-  - Ses portu açılıyor ve dolduruluyor (kulakla denenmedi). Kol eşlemesi yazıldı, gerçek DS3 ile denenmedi
-    (testler `pad.txt` betiğiyle).
-  - CPU renderer RPCS3'te saniyede ~1 kare çiziyor: oynanabilirlik Aşama 3'ün (GPU renderer) işi.
+- **Stage 1, first result:** `XBE_BIG_ENDIAN` mode works. The test build, built with `powerpc64-linux-gnu-g++` and run
+  under `qemu-ppc64`, draws the intro logos, the movies, the title screen, name entry, loading and the city
+  (Chapter 1, the rooftop) the same as on x86. How to: [BUILDING.md](BUILDING.md), "Big-endian (PowerPC)".
+  - The generated code didn't change: the memory macros are byte-swapping references
+    ([`x86_ops.h`](../sdk/runtime/cpu/x86_ops.h)), and the runtime reads console data through
+    [`core/le.h`](../sdk/runtime/core/le.h).
+  - Not yet gone over for big-endian: the `gl/` renderer, `gpu/render_thread.cpp`, `xnet` (beyond sockaddr).
+- **Stage 0, the build part:** ps3toolchain (PPU GCC 13.2.0) and PSL1GHT are installed; the `blitting` sample becomes a `.self`.
+  - libstdc++ has **no thread support** (`std::thread`, `std::mutex`, `std::condition_variable`): a thin layer over
+    PSL1GHT `sys/` is needed.
+  - `std::filesystem` compiles; linking lacks only `symlink`, `readlink`, `fchmod`, `pathconf` (empty stubs do).
+  - The `rsxtest` sample wants the Cg toolkit (as expected).
+- **Stage 0, RPCS3 tests** (RPCS3 0.0.42, firmware 4.93):
+  - Working: C++20, exceptions (`try`/`catch`), atomics, PSL1GHT threads + mutex + condition variable (4 threads,
+    400,000 counts right), `steady_clock`/`usleep`, `std::filesystem` opening folders, writing/reading/sizing/listing/renaming
+    files. The `blitting` sample draws in RPCS3 through Vulkan.
+  - Not working: `std::filesystem::remove_all` can't delete folders (newlib `remove()`): a small layer needed.
+  - Memory: the largest `malloc` is 208 MB. Blocks of 256 MB, 512 MB and 1 GB can be reserved in the address space, 2 GB
+    can't. So there's no flat 4 GB window: **the segmented mode is a must**.
+  - Build settings: `-std=gnu++20` (newlib 1.20 hides functions like `snprintf` under strict `c++20`),
+    `namespace std { using ::snprintf; }` for `std::snprintf`, newlib's `printf` doesn't know `%zu`.
+- **Stage 2, first result (same day):** the `ps3/` layer is written ([ps3/README.md](../ps3/README.md)). The PS3 build
+  (`SpiderMan2Xbox.self`) starts in RPCS3: logos, movies, title screen, new game and **the city** (Chapter 1) show
+  correctly with the CPU renderer; no crash in a 10-minute run. Memory: guest ~66 MB, heap ~60 MB.
+  - The sound port opens and is filled (not checked by ear). The pad mapping is written but not tried with a real DS3
+    (the tests use a `pad.txt` script).
+  - The CPU renderer draws about one frame a second in RPCS3: playability is Stage 3's job (the GPU renderer).
 
-- **Aşama 3 başladı (2026-11-19): RSXGL.** RSXGL (gzorin/RSXGL, 2026-04 sürümü) WSL'de ps3toolchain ile derlendi.
-  - Derleme için Python 2 gerekmedi: Mesa'nın 2012 tarihli üreteç betikleri (GLSL builtin'leri, gallium format
-    tabloları) Python 3'e uyarlandı, `makedepend` ve `xxd` için küçük yerel karşılıklar kullanıldı, GLES dosyaları
-    boş bırakıldı (RSXGL'de kapalı).
-  - **libstdc++'ın iostream başlatması bu toolchain'de RPCS3'te `main`'den önce takılıyor** (`std::cout` kullanan her
-    program). RSXGL'de tek bir `std::cout` vardı, `printf` yapıldı. Oyun kodu iostream kullanmamalı.
-  - Deneme programı RPCS3'te çalışıyor: EGL, 1280x720 yüzey, `GL_VERSION 3.1.0 RSXGL`, `NV40`. Oyunun shader'larına
-    benzeyen GLSL 1.30 programları (hesaplanan indisle sabit okuma, `bvec`, `texture`) derleniyor: shader başına ~0,1 s.
-  - Bulunan engeller:
-    1. **Uniform dizileri desteklenmiyor**: `glUniform4fv(c, 192, …)` `GL_INVALID_OPERATION` veriyor (RSXGL diziyi tek
-       eleman sayıyor). Vertex programın `c[192]`'si için RSXGL'e dizi desteği eklenmeli; fragment tarafında
-       NV40'ta sabitler program kodunun içinde, dizi yerine tek tek uniform yazılmalı.
-    2. `glReadPixels` sıfır döndürüyor (yeniden okuma, CPU'nun kilitlediği yüzeyler için gerekli).
-    3. **Çizim başına bekleme:** çizimler normalde mikrosaniye sürüyor ama arada bir çizim tam **300 ms** bekliyor;
-       500 çizimlik bir kare ~470 ms. Komut tamponunu 8 MB yapmak değiştirmedi. Kaynağı bulunmalı (RSXGL'in
-       senkronizasyonu ya da RPCS3'ün bu kullanım şeklindeki davranışı); çözülmezse Yol A'nın performansı yetmez.
-  - **Güncelleme:** 300 ms bekleme çözüldü. Sebep: libgcm'in 32 KB'lık komut pencereleri; her pencere sonunda
-    RPCS3'te ~300 ms bekleniyor. Komut tamponunu tek bir halka olarak kullanan kendi callback'imizle 500 çizim
-    0,6 ms sürüyor. Uniform dizileri için RSXGL yamalandı (`c[192]` artık yükleniyor). Kalan: vertex programda
-    hesaplanan indisle sabit okuma yanlış sabiti okuyor ve `bvec` ile `mix` siyah veriyor (Mesa nvfx derleyicisi);
-    `glReadPixels` hâlâ sıfır.
-  - **Güncelleme 2 (2026-11-19 sabah): oyun GPU renderer ile çalışıyor.** `gl/` renderer'ı RSXGL'e bağlandı
-    (`gl/gl_rsx.cpp`, `ps3/gl_host.cpp`, ayrıntılar [ps3/README.md](../ps3/README.md)). RPCS3'te logolar ve videolar
-    40-60 FPS, başlık ekranı 60 FPS, 3D sahneler ~20 FPS (CPU renderer'da 0,2-0,3 FPS'ti); 7,5 dakikalık koşuda çökme yok.
-    - RSXGL'de bulunup düzeltilenler (`ps3/rsxgl/rsxgl.patch`, `ps3/rsxgl/build.sh` ile sıfırdan derleniyor):
-      framebuffer'a takılan nesnenin adı yerine referans sayısı saklanıyordu (renk + derinlik hiç tamamlanmıyordu),
-      derinlik texture'ları, uniform dizileri, `glReadPixels`, çevrilemeyen programda süreci durdurmak, iostream,
-      bağlanan her programın Mesa ara kodunu (~1 MB) sonsuza dek tutması.
-    - Bellek: dağıtım tablosu PS3'te 39 MB'tan 9 MB'a indi; RSXGL+Mesa TOC'u aştığı için `-mminimal-toc`.
-    - **Kalan:** (1) bazı vertex programları RSX'in 512 komut sınırını aşıyor (545); (2) bazı render target'larda
-      "Framebuffer setup failed / depth buffer sığmıyor" (derinlik yüzeyi renkten küçük olabilir); (3) RPCS3'te görüntü
-      ekrana gelmiyor (oyun çiziyor, ekran güncellenmiyor), muhtemelen 1 ve 2 ile ilgili; (4) hesaplanan indisle sabit
-      okuma (`c[a0+4]`) ve `bvec` ile `mix` testleri bekliyor. RPCS3'te geri okuma (glReadPixels) gerçek kareyi vermiyor.
+- **Stage 3 started (2026-11-19): RSXGL.** RSXGL (gzorin/RSXGL, 2026-04) builds in WSL with ps3toolchain.
+  - No Python 2 needed: Mesa's 2012 generator scripts (GLSL builtins, gallium format tables) were adapted to Python 3,
+    small local stand-ins replace `makedepend` and `xxd`, the GLES files are left empty (disabled in RSXGL).
+  - **libstdc++'s iostream startup hangs before `main` in RPCS3 with this toolchain** (any program using `std::cout`).
+    RSXGL had a single `std::cout`, now `printf`. The game's code must not use iostream.
+  - A test program runs in RPCS3: EGL, a 1280x720 surface, `GL_VERSION 3.1.0 RSXGL`, `NV40`. GLSL 1.30 programs like
+    the game's (constants read by a computed index, `bvec`, `texture`) compile: ~0.1 s per shader.
+  - Blockers found:
+    1. **Uniform arrays aren't supported**: `glUniform4fv(c, 192, …)` gives `GL_INVALID_OPERATION` (RSXGL counts the
+       array as one element). RSXGL needs array support for the vertex program's `c[192]`; on the fragment side NV40
+       keeps constants inside the program code, so they must be written as single uniforms instead of an array.
+    2. `glReadPixels` returns zeros (reading back is needed for surfaces the CPU locks).
+    3. **A wait per draw:** draws normally take microseconds, but now and then one waits exactly **300 ms**; a frame of
+       500 draws takes ~470 ms. An 8 MB command buffer didn't change it. The cause must be found (RSXGL's
+       synchronisation or RPCS3's behaviour with this usage); if it can't be fixed, Path A's performance won't do.
+  - **Update:** the 300 ms wait is fixed. Cause: libgcm's 32 KB command windows; at the end of each window RPCS3
+    waits ~300 ms. With our own callback using the command buffer as one ring, 500 draws take 0.6 ms. RSXGL is patched
+    for uniform arrays (`c[192]` loads now). Left: in vertex programs a constant read by a computed index reads the
+    wrong constant, and `bvec` with `mix` gives black (Mesa's nvfx compiler); `glReadPixels` still returns zeros.
+  - **Update 2 (2026-11-19 morning): the game runs with the GPU renderer.** The `gl/` renderer is connected to RSXGL
+    (`gl/gl_rsx.cpp`, `ps3/gl_host.cpp`, details in [ps3/README.md](../ps3/README.md)). In RPCS3 the logos and movies
+    run at 40-60 FPS, the title screen at 60 FPS, 3D scenes at ~20 FPS (0.2-0.3 FPS with the CPU renderer); no crash
+    in a 7.5-minute run.
+    - Found and fixed in RSXGL (`ps3/rsxgl/rsxgl.patch`, rebuilt from scratch by `ps3/rsxgl/build.sh`): a framebuffer
+      attachment kept a reference count instead of the object's name (colour + depth never completed), depth
+      textures, uniform arrays, `glReadPixels`, stopping the process on a program it couldn't translate, iostream,
+      every linked program keeping its Mesa intermediate code (~1 MB) forever.
+    - Memory: the dispatch table went from 39 MB to 9 MB on the PS3; `-mminimal-toc` since RSXGL + Mesa overflow the TOC.
+    - **Left:** (1) some vertex programs exceed the RSX's 512-instruction limit (545); (2) some render targets give
+      "Framebuffer setup failed / depth buffer doesn't fit" (the depth surface may be smaller than the colour one);
+      (3) in RPCS3 the picture doesn't reach the screen (the game draws, the screen doesn't update), probably tied to
+      1 and 2; (4) the tests for constants read by a computed index (`c[a0+4]`) and `bvec` with `mix` are pending.
+      Reading back in RPCS3 (glReadPixels) doesn't give the real frame.

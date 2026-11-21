@@ -1,157 +1,158 @@
-# Spider-Man 2 (Xbox) — Android kurulum rehberi
+# Spider-Man 2 (Xbox) — Android install guide
 
-Bu rehber, kendi `default.xbe`'nden derlenen Android sürümünü telefona kurmayı ve oyunu çalıştırmayı adım adım anlatır.
+**English** · [Türkçe](ANDROID.tr.md)
+
+This guide takes the Android build made from your own `default.xbe`, installs it on a phone and gets the game running.
 
 > [!IMPORTANT]
-> APK, senin oyun kopyandan üretilmiş kod içerir. **Başkalarıyla paylaşma, internete yükleme.** Oyun dosyaları da
-> APK'nın içinde değildir; kendi kopyanı telefona ayrıca koyman gerekir.
+> The APK contains code made from your copy of the game. **Don't share it or upload it anywhere.** The game files are
+> not in the APK either; you put your own copy on the phone yourself.
 
 > [!NOTE]
-> Bu sürüm deneysel. Emülatörde başlık ekranına ve menülere kadar test edildi. Gerçek bir telefonda oyun içi,
-> ses, kayıt ve performans henüz denenmedi.
+> This build is experimental. It has been tested in game on a phone with a Mali-G610 (Redmi Note 13 Pro+) and in
+> the Android emulator. Saving, loading and long play have not been tried yet.
 
-## Gerekenler
+## What you need
 
 | | |
 |---|---|
-| **Telefon** | Android 8.0 veya üstü, 64-bit (ARM64) işlemci. Son 6-7 yılın telefonlarının neredeyse hepsi uyar. |
-| **Grafik** | OpenGL ES 3.1 veya üstü (3.2 önerilir). Adreno (Snapdragon), Mali ve Xclipse GPU'lar uygundur. |
-| **Bellek** | En az 4 GB RAM önerilir. |
-| **Depolama** | Oyun için yaklaşık 1,7 GB, ayrıca uygulama ve önbellek için ~200 MB boş alan. |
-| **Oyun** | Kendi *Spider-Man 2* **orijinal Xbox** kopyan. `default.xbe` dosyasının SHA-1'i `853bcb253c5baea2d7e2d9b59e5888b4c87bb402` olmalı (ABD sürümü). |
-| **APK** | `dist-android\SpiderMan2-Android.apk` |
+| **Phone** | Android 8.0 or newer with a 64-bit (ARM64) processor: nearly every phone of the last 6-7 years. |
+| **Graphics** | OpenGL ES 3.1 or newer (3.2 recommended). Adreno (Snapdragon), Mali and Xclipse GPUs work. |
+| **Memory** | 4 GB of RAM or more recommended. |
+| **Storage** | About 1.7 GB for the game, plus ~200 MB for the app and its cache. |
+| **Game** | Your own *Spider-Man 2* for the **original Xbox**, whose `default.xbe` has the SHA-1 `853bcb253c5baea2d7e2d9b59e5888b4c87bb402` (the US release). |
+| **APK** | You build it yourself: [Building the APK](#building-the-apk-on-a-computer). No ready-made APK is distributed, since it contains code made from the game. |
 
-## 1. APK'yı telefona kur
+## 1. Install the APK
 
-1. Telefonu USB kablosuyla bilgisayara bağla. Telefonda çıkan bildirimden **Dosya aktarımı** (MTP) modunu seç.
-2. `SpiderMan2-Android.apk` dosyasını telefonun **Download** (İndirilenler) klasörüne kopyala.
-3. Telefonda **Dosyalar** uygulamasını aç, APK'ya dokun.
-4. "Bilinmeyen uygulamalar" uyarısı çıkarsa **Ayarlar**'a dokun ve dosya uygulamasına **Bu kaynaktan izin ver** iznini ver.
-   Geri dönüp **Yükle**'ye dokun.
-5. Play Protect uyarı verirse **Yine de yükle**'yi seç. Uygulama imzasız bir test sürümü olduğu için bu normaldir.
+1. Connect the phone to the computer with a USB cable and pick **File transfer** (MTP) in the notification on the phone.
+2. Copy the APK into the phone's **Download** folder.
+3. Open the **Files** app on the phone and tap the APK.
+4. If an "unknown apps" warning comes up, tap **Settings** and turn on **Allow from this source** for the files app.
+   Go back and tap **Install**.
+5. If Play Protect warns about it, choose **Install anyway**. That is normal for an unsigned test build.
 
-> Geliştirici seçenekleri ve USB hata ayıklama açıksa, bilgisayardan tek komutla da kurabilirsin:
+> With developer options and USB debugging on, one command from the computer installs it:
 >
 > ```bash
-> adb install -r dist-android/SpiderMan2-Android.apk
+> adb install -r android/app/build/outputs/apk/debug/app-debug.apk
 > ```
 
-## 2. Uygulamayı bir kez aç
+## 2. Open the app once
 
-Ana ekranda **Spider-Man 2** simgesine dokun. İlk açılışta oyun bulunamadığı için şu mesajı görürsün:
+Tap **Spider-Man 2** on the home screen. The first time, with no game there yet, it says:
 
 > *Game not found — Put your own copy of Spider-Man 2 (original Xbox) in …/files/game*
 
-Bu beklenen bir durumdur: uygulama kendi klasörünü oluşturmuş olur. **Tamam**'a dokunup kapat.
+That is expected: the app has made its folder. Tap **OK** to close it.
 
-## 3. Oyunu telefona kopyala
+## 3. Copy the game to the phone
 
-Oyunun yeri:
+The game goes in:
 
 ```
-Telefon depolama alanı / Android / data / com.spiderman2.xbox / files / game /
+Phone storage / Android / data / com.spiderman2.xbox / files / game /
 ```
 
-1. Telefon USB ile bağlıyken bilgisayarda (Dosya Gezgini) telefonun depolama alanını aç.
-2. `Android` → `data` → `com.spiderman2.xbox` → `files` → `game` klasörüne gir.
-3. Oyunu buraya kopyala. İki seçenek var:
-   - **Disk imajı (önerilen):** `.iso`, `.xiso`, `.cci` veya `.cso` dosyasının kendisi, örneğin
-     `Spider-Man 2 (World).xiso.iso`. Dosya adının önemi yok.
-   - **Diskin dosyaları:** `default.xbe` ve yanında `data` klasörü (`data\game.ini`, `data\packs\…`, `data\sound\…`, `data\movies\…`).
-4. Kopyalama bitene kadar bekle (1,7 GB, kabloya göre 1-3 dakika).
+1. With the phone connected over USB, open its storage in File Explorer on the computer.
+2. Go into `Android` → `data` → `com.spiderman2.xbox` → `files` → `game`.
+3. Copy the game there, one of:
+   - **A disc image (recommended):** the `.iso`, `.xiso`, `.cci` or `.cso` file itself, for example
+     `Spider-Man 2 (World).xiso.iso`. Its name doesn't matter.
+   - **The disc's files:** `default.xbe` with the `data` folder beside it (`data\game.ini`, `data\packs\…`, `data\sound\…`, `data\movies\…`).
+4. Wait for the copy to finish (1.7 GB, 1-3 minutes depending on the cable).
 
 > [!TIP]
-> **`Android/data` klasörü görünmüyorsa:** Android 11 ve sonrası bu klasörü telefonun kendi dosya uygulamasından gizler,
-> ama **bilgisayardan USB ile** genelde görünür. Görünmüyorsa telefonu çıkarıp tekrar tak veya kilit ekranını açık tut.
+> **Can't see `Android/data`?** Android 11 and newer hide it from the phone's own files app, but it usually shows
+> **from a computer over USB**. If it doesn't, unplug and plug the phone back in, or keep its screen unlocked.
 >
-> **`adb push` kullanma:** `adb` ile oraya kopyalanan dosyanın sahibi uygulama olmaz ve uygulama dosyayı okuyamaz
-> ("Game not found" der). USB dosya aktarımı (MTP) ile kopyala.
+> **Don't use `adb push`:** a file copied there with `adb` isn't owned by the app, which then can't read it ("Game not
+> found"). Copy it with USB file transfer (MTP).
 
-## 4. Oyna
+## 4. Play
 
-Uygulamayı yeniden aç. Kısa bir yükleme ekranından sonra oyunun açılış videoları ve **PRESS START TO BEGIN** ekranı gelir.
-Telefon yatay moda geçer. İlk açılışta Android'in "Tam ekran görüntüleniyor" uyarısını **Anladım** ile kapat.
+Open the app again. After a short loading screen come the game's intro movies and **PRESS START TO BEGIN**. The phone
+turns to landscape. The first time, close Android's "Viewing full screen" notice with **Got it**.
 
-İlk dakikalarda kısa takılmalar olabilir: oyun her yeni efekti ilk gördüğünde shader'ını derler. Bunlar
-`cache/shaders.cache` dosyasına kaydedilir ve sonraki açılışlarda önceden hazırlanır.
+The first minutes may stutter briefly: the game builds each effect's shader the first time it sees it. They are kept
+in `cache/shaders.cache` and built ahead at the next start.
 
-## Kontroller
+## Controls
 
-### Dokunmatik
+### Touch
 
-| Ekrandaki yer | Xbox tuşu | Oyunda |
+| On the screen | Xbox button | In game |
 |---|---|---|
-| Sol altta çubuk (başparmağın değdiği yerden başlar) | Sol analog | Yürüme / koşma, menüde gezinme |
-| Sağ yarıda boş bir yere parmağı sürükle | Sağ analog | Kamera |
-| **A** | A | Zıplama, seçme |
-| **B** | B | Geri, duvara tutunma |
-| **X** | X | Yumruk, menüde silme |
-| **Y** | Y | Menüde onay (Enter) |
-| **RT** (sağ üst) | Sağ tetik | Ağ sallanması |
-| **LT** (sol üst) | Sol tetik | Hızlı koşu |
+| Stick at the bottom left (appears where your thumb lands) | Left stick | Walk / run, menu navigation |
+| Drag anywhere free on the right half | Right stick | Camera |
+| **A** | A | Jump, select |
+| **B** | B | Back, stick to walls |
+| **X** | X | Punch, delete in menus |
+| **Y** | Y | Confirm in menus (Enter) |
+| **RT** (top right) | Right trigger | Web swing |
+| **LT** (top left) | Left trigger | Sprint |
 | **BLK** / **WHT** | Black / White | |
-| **START** / **BACK** (üst orta) | Start / Back | Duraklatma, harita |
-| Telefonun geri tuşu / hareketi | Start | Duraklatma |
+| **START** / **BACK** (top middle) | Start / Back | Pause, map |
+| The phone's back button or gesture | Start | Pause |
 
-Joystick, sol yarıda başparmağının değdiği yerde belirir ve topuzu parmağını takip eder. Basılan tuşlar parlar.
-Kamera sürüklemeyi birebir takip eder: oyunun çubuk eşiği ve hızlanması sürüklerken kapatılır.
+The stick appears where your thumb lands on the left half and its knob follows your finger. Pressed buttons light up.
+The camera follows a drag 1:1: the game's stick threshold and acceleration are turned off while you drag.
 
-### Hassasiyet ve boyut: `controls.ini`
+### Sensitivity and size: `controls.ini`
 
-İlk açılışta `files/controls.ini` oluşur. Bilgisayardan açıp düzenle, oyunu yeniden başlat:
+The first start writes `files/controls.ini`. Edit it from a computer and start the game again:
 
-| Ayar | Varsayılan | Ne yapar |
+| Setting | Default | What it does |
 |---|---|---|
-| `camera_sensitivity` | 1.0 | Kamera hızı. 1 = ekran genişliği boyunca sürükleme ≈ yarım tur. 2 iki katı, 0.5 yarısı. |
-| `invert_y` | 0 | 1 yaparsan yukarı sürüklemek aşağı baktırır |
-| `size` | 1.0 | Tuşların ve joystick'in boyutu (0.7 – 1.5) |
-| `opacity` | 1.0 | Tuşların görünürlüğü (0.3 – 1.5) |
+| `camera_sensitivity` | 1.0 | Camera speed. 1 = a drag across the screen's width turns about half around. 2 twice that, 0.5 half. |
+| `invert_y` | 0 | 1: dragging up looks down |
+| `size` | 1.0 | Size of the buttons and the stick (0.7 – 1.5) |
+| `opacity` | 1.0 | How visible the buttons are (0.3 – 1.5) |
 
-### Kontrolcü
+### Controllers
 
-Bluetooth veya USB ile bağlanan Xbox, PlayStation ve Switch Pro kontrolcüleri çalışır. Kontrolcüye bastığında ekrandaki
-tuşlar gizlenir. Ekrana dokunduğunda geri gelirler.
+Xbox, PlayStation and Switch Pro controllers work over Bluetooth or USB. Pressing a controller button hides the touch
+controls; touching the screen brings them back.
 
-## Dosyalar
+## Files
 
-Hepsi `Android/data/com.spiderman2.xbox/files/` altında:
+All under `Android/data/com.spiderman2.xbox/files/`:
 
-| Klasör | İçerik |
+| Folder | What |
 |---|---|
-| `game/` | Senin oyun kopyan |
-| `save/progress/` | Oyun kayıtları. **Uygulamayı kaldırmadan önce bunu bilgisayara yedekle**: kaldırınca Android bu klasörü siler. |
-| `save/data/` | Oyunun Xbox sabit diskine yazdığı kendi verisi |
-| `cache/` | Shader listesi ve Xbox sabit diskinin geri kalanı; silinebilir |
-| `logs/` | `sm2.log` — sorun olduğunda bakılacak yer |
+| `game/` | Your copy of the game |
+| `save/progress/` | Saved games. **Back it up to a computer before uninstalling the app**: Android deletes this folder with it. |
+| `save/data/` | The game's own data on the Xbox's hard disk |
+| `cache/` | The shader list and the rest of the Xbox's hard disk; safe to delete |
+| `logs/` | `sm2.log`: where to look when something goes wrong |
 
-## Güncelleme
+## Updating
 
-Yeni bir APK'yı eskisinin üstüne kurman yeterli. `game/` ve `save/` klasörleri korunur.
+Install the new APK over the old one. The `game/` and `save/` folders stay.
 
-## Sorun giderme
+## Troubleshooting
 
-| Belirti | Çözüm |
+| Symptom | Fix |
 |---|---|
-| **"Game not found"** | Dosya `files/game/` klasöründe mi? Uzantı `.iso`, `.xiso`, `.cci` veya `.cso` mu? `adb` ile kopyaladıysan USB dosya aktarımıyla yeniden kopyala. |
-| **"Another release of the game"** | Kopyan desteklenen ABD sürümü değil. APK, derlendiği `default.xbe` ile birebir aynı oyunu ister. |
-| **"OpenGL ES 3.1 is needed"** | Telefonun GPU'su çok eski; bu sürüm o telefonda çalışmaz. |
-| **Uygulama hemen kapanıyor** | `logs/` klasöründeki en yeni dosyanın sonuna bak; satırlar `error:` ile başlayan yerler sorunu gösterir. |
-| **Arka plandan dönünce siyah ekran / kapanma** | Bilinen sorun: uygulamayı tamamen kapatıp yeniden aç. Kayıt noktalarında kaydetmeyi unutma. |
-| **Bozuk / eksik grafik** | Telefonun GPU modelini ve `logs/` dosyasını not al. GPU sürücüleri arasında farklılıklar olabiliyor. |
-| **Yavaş** | Telefonu şarja tak, pil tasarrufunu kapat. İlk dakikalardaki takılmalar shader derlemesindendir ve geçer. |
+| **"Game not found"** | Is the file in `files/game/`? Is it `.iso`, `.xiso`, `.cci` or `.cso`? If you copied it with `adb`, copy it again over USB file transfer. |
+| **"Another release of the game"** | Your copy isn't the supported US release. The APK takes exactly the game its `default.xbe` was built from. |
+| **"OpenGL ES 3.1 is needed"** | The phone's GPU is too old; this build doesn't run on it. |
+| **The app closes at once** | Look at the end of the newest file in `logs/`; the lines starting with `error:` tell what went wrong. |
+| **Black screen or closing after coming back from the background** | Known issue: close the app fully and open it again. Save at the save points. |
+| **Broken or missing graphics** | Note the phone's GPU model and keep the `logs/` file. GPU drivers differ. |
+| **Slow** | Plug the phone in and turn battery saver off. The stutters in the first minutes are shader builds and pass. |
 
-## APK'yı yeniden derlemek (bilgisayarda)
+## Building the APK (on a computer)
 
-Kaynakta değişiklik yaptıysan veya yeni bir sürüm istiyorsan:
-
-1. Önce Windows sürümü bir kez derlenmiş olmalı. Bu adım `generated/game` klasöründeki oyun kodunu `assets/default.xbe`'den üretir.
-2. Gerekenler: Android SDK, NDK 28.2.13676358, JDK 17 veya 21. `android/local.properties` dosyasında SDK yolu
-   (`sdk.dir=C:/Users/<kullanıcı>/AppData/Local/Android/Sdk`) olmalı.
-3. `android` klasöründe:
+1. The Windows version must have been built once: that makes the game's code in `generated/game` from
+   `assets/default.xbe` ([README](../README.md#windows)).
+2. You need the Android SDK, NDK 28.2.13676358 and JDK 17 or 21. `android/local.properties` holds the SDK's path
+   (`sdk.dir=C:/Users/<user>/AppData/Local/Android/Sdk`).
+3. In the `android` folder:
 
    ```bash
    gradlew.bat assembleDebug -PABIS=arm64-v8a
    ```
 
-   Sadece telefon için `arm64-v8a`; emülatörü de istiyorsan `-PABIS=arm64-v8a,x86_64`. İlk derleme 5-10 dakika sürer.
-4. Çıkan dosya: `android/app/build/outputs/apk/debug/app-debug.apk`.
+   `arm64-v8a` alone for phones; `-PABIS=arm64-v8a,x86_64` for the emulator too. The first build takes 5-10 minutes.
+4. The result: `android/app/build/outputs/apk/debug/app-debug.apk`.

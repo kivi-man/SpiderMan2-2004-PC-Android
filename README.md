@@ -61,7 +61,7 @@ Controllers work through SDL3.
 
 ## Android
 
-The full guide is in Turkish: [docs/ANDROID.md](docs/ANDROID.md). In short:
+The full guide: [docs/ANDROID.md](docs/ANDROID.md) ([Türkçe](docs/ANDROID.tr.md)). In short:
 
 1. Build the Windows version once (it makes `generated/game` from your `default.xbe`).
 2. Install the Android SDK, NDK 28.2.13676358 and JDK 17 or 21; write `android/local.properties` with
@@ -76,7 +76,7 @@ the controls' size and opacity.
 ## PS3 (experimental)
 
 Not playable yet. The runtime has a big-endian mode, verified under `qemu-ppc64`, and `ps3/` has a PSL1GHT build with
-RSXGL. See [ps3/README.md](ps3/README.md) and [docs/PS3_PLAN.md](docs/PS3_PLAN.md).
+RSXGL. See [ps3/README.md](ps3/README.md) and [docs/PS3_PLAN.md](docs/PS3_PLAN.md) ([Türkçe](docs/PS3_PLAN.tr.md)).
 
 ## How it was made
 
@@ -92,8 +92,8 @@ TGP482'nin Xbox XBE Recomp aracı üzerine kurulu. Oyunun x86 kodu önceden C++'
 - **Oyun dosyası yok:** kendi orijinal Xbox kopyan gerekiyor. Derlediğin `.exe` ve `.apk` oyundan üretilen kod
   içerir; **hiçbir yere yükleme.**
 - **Windows:** yukarıdaki adımlar. Klavye/fare ve kontrolcü destekli.
-- **Android:** adım adım rehber [docs/ANDROID.md](docs/ANDROID.md). Dokunmatik kontroller ve kontrolcü destekli.
-- **PS3:** deneysel, henüz oynanmıyor.
+- **Android:** adım adım rehber [docs/ANDROID.tr.md](docs/ANDROID.tr.md). Dokunmatik kontroller ve kontrolcü destekli.
+- **PS3:** deneysel, henüz oynanmıyor. Plan ve durum: [docs/PS3_PLAN.tr.md](docs/PS3_PLAN.tr.md).
 
 ## Credits
 
